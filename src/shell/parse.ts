@@ -178,7 +178,16 @@ export async function parseStream(
     ctx.salvage()
   }
 
-  const iterator = chunks[Symbol.asyncIterator]()
+  // Acquiring the iterator can throw too (a getter that fails, a broken iterable).
+  // Rare, but "parseStream never rejects" is a contract the whole shell leans on:
+  // a rejection strands the records we did recover.
+  let iterator: AsyncIterator<string>
+  try {
+    iterator = chunks[Symbol.asyncIterator]()
+  } catch (error) {
+    noteReadError(error)
+    return { shape: 'unknown', records: [], problems, salvaged, declaredFormat: undefined }
+  }
   let probe = ''
   let exhausted = false
 
@@ -203,9 +212,18 @@ export async function parseStream(
     }
   }
 
+  // detectShape needs three facts, and stopping at a fixed size gets the third one
+  // wrong: when the newline lands on the probe's last character there is nothing
+  // after it to prove more records follow, so the file reads as one document and
+  // every later record is dropped. Chunked reads make that systematic at k*64KiB-1
+  // rather than rare. Keep buying until the probe can actually answer the question.
+  const probeSettled = () =>
+    firstValue !== -1 && firstNewline !== -1 && hasNonWs(probe, firstNewline + 1)
+
   for (;;) {
     rescan()
-    const wantMore = probe.length < PROBE_CHARS || (firstNewline === -1 && probe.length < MAX_PROBE_LINE)
+    const wantMore =
+      !probeSettled() && (probe.length < PROBE_CHARS || probe.length < MAX_PROBE_LINE)
     if (!wantMore) break
     let next: IteratorResult<string>
     try {
@@ -243,6 +261,20 @@ export async function parseStream(
   }
 
   sink.flush()
+  // A document that ends in trailing content is almost always JSONL whose first
+  // record outran the probe budget above. Say so: silently keeping record 1 of
+  // several thousand is the one failure here that looks like success.
+  if (shape !== 'jsonl' && problems.some(p => p.excerpt.startsWith('trailing content'))) {
+    problems.push({
+      at: 0,
+      kind: 'malformed-json',
+      excerpt:
+        `read as a single ${shape} because the first line exceeds the ` +
+        `${MAX_PROBE_LINE >> 20} MiB shape probe; if this file is JSONL, records after ` +
+        `the first were not read`,
+    })
+    ctx.salvage()
+  }
   if (suppressed > 0) {
     problems.push({ at: 0, kind: 'malformed-json', excerpt: `…and ${suppressed} more problems (list truncated)` })
   }

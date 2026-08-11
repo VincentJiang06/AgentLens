@@ -155,6 +155,8 @@ interface Dataset {
    * so there is no link to copy for it.
    */
   demoId?: string
+  /** Who produced a demo package's data. Travels with the package; see types.ts. */
+  credit?: DemoPackage['credit']
   files: ParsedFile[]
   dispatch: Dispatch
   /** Undefined when nobody claimed the data, or when the claimant failed. */
@@ -181,7 +183,7 @@ function messageOf(error: unknown): string {
 }
 
 function buildDataset(
-  source: { key: string; title: string; demoId?: string },
+  source: { key: string; title: string; demoId?: string; credit?: DemoPackage['credit'] },
   files: ParsedFile[],
   preferred?: Adapter,
 ): Dataset {
@@ -313,7 +315,11 @@ function App() {
         if (!current()) return
         setPhase({
           kind: 'ready',
-          dataset: buildDataset({ key, title: demo.label, demoId: demo.id }, [parsed], adapter),
+          dataset: buildDataset(
+            { key, title: demo.label, demoId: demo.id, credit: demo.credit },
+            [parsed],
+            adapter,
+          ),
         })
       } catch (error) {
         if (!current() || controller.signal.aborted) return
@@ -555,6 +561,19 @@ function DatasetView({ dataset, recordId, onClose }: DatasetViewProps) {
           Close
         </button>
       </div>
+
+      {dataset.credit && (
+        <p className="dataset-credit">
+          Data:{' '}
+          {dataset.credit.href ? (
+            <a href={dataset.credit.href} target="_blank" rel="noreferrer noopener">
+              {dataset.credit.text}
+            </a>
+          ) : (
+            dataset.credit.text
+          )}
+        </p>
+      )}
 
       <div className="dataset-notices stack">
         <ParseNotices files={files} />

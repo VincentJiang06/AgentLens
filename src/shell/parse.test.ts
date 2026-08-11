@@ -260,6 +260,22 @@ test('a JSONL first line larger than the 64 KiB probe is still JSONL', async () 
   }
 })
 
+test('a first line ending exactly on a chunk boundary is still JSONL', async () => {
+  // The probe reads whole 64 KiB chunks, so a first line of exactly k*65536-1 chars
+  // puts its newline on the probe's last character with nothing after it to prove
+  // more records follow. Rounded paddings never land here, which is how a green
+  // suite hid the bug: only these exact lengths reproduce it.
+  for (const lineLength of [65_535, 131_071, 196_607, 262_143]) {
+    const pad = 'x'.repeat(lineLength - JSON.stringify({ id: 0, pad: '' }).length)
+    const first = JSON.stringify({ id: 0, pad })
+    assert.equal(first.length, lineLength, 'fixture must hit the boundary exactly')
+    const outcome = await parseStream(chunked(`${first}\n{"id":1}\n{"id":2}\n`))
+    assert.equal(outcome.shape, 'jsonl', `line ${lineLength}`)
+    assert.equal(outcome.records.length, 3, `line ${lineLength}`)
+    assert.equal(outcome.salvaged, false, `line ${lineLength}`)
+  }
+})
+
 test('a first line past the 1 MiB probe budget is read as one JSON document', async () => {
   // Pins the documented ceiling rather than pretending there is none: past
   // MAX_PROBE_LINE the parser stops looking for a newline and treats the file as

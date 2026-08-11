@@ -38,6 +38,10 @@ export const arbiterosPreviewAdapter: Adapter<ArbiterosPreviewModel> = {
       id: 'arbiteros-preview',
       label: 'ArbiterOS red-team sample',
       path: 'demo-data/arbiteros-preview/cases.json',
+      credit: {
+        text: '105 red-team cases from cure-lab/ArbiterOS, Apache-2.0, unmodified',
+        href: 'https://github.com/cure-lab/ArbiterOS',
+      },
     },
   ],
 }

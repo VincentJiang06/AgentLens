@@ -48,12 +48,22 @@ export function VirtualList<T>({
     [items],
   )
 
+  // Start the window where the deep link points instead of scrolling there after
+  // mount. Scrolling after mount leaves the two out of step — the element ends up
+  // at the right scrollTop while the rendered range is still the one from offset
+  // 0, so the row is never in the DOM and the reader sees blank space until they
+  // touch the wheel. Read once, on the first render, which is when it applies.
+  const initialOffset = useRef(
+    scrollToIndex != null && scrollToIndex > 0 ? scrollToIndex * estimateSize : 0,
+  ).current
+
   const virtualizer = useVirtualizer({
     count,
     getScrollElement: () => scrollRef.current,
     estimateSize: estimate,
     overscan,
     getItemKey,
+    initialOffset,
   })
 
   const lastTarget = useRef<number | null>(null)

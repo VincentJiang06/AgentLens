@@ -70,6 +70,15 @@
   min-width: 0;
 }
 
+/* Every demo package republishes some group's own output, so the credit sits with
+   the data itself rather than in a README nobody opens on the way to the demo. */
+.dataset-credit {
+  margin: 0;
+  padding: var(--sp-1) var(--sp-3) 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
 /* The label doubles as the copy's status line ("Link copied", "Copy failed …"),
    so it truncates instead of pushing Close off a narrow screen. */
 .copy-link {

@@ -29,6 +29,20 @@ Everything else still falls back. Drop an RM-R1, PromptWise or RecMem log today 
 get the generic record browser with a collapsible JSON tree, because none of those
 adapters exists yet. See [Roadmap](#roadmap).
 
+### Where the demo data comes from
+
+The bundled demo is **not synthetic**: it is the 105 red-team cases from
+[cure-lab/ArbiterOS](https://github.com/cure-lab/ArbiterOS) (Apache-2.0, revision
+`78a8f98`), concatenated into one JSON array and otherwise untouched. Attribution, the
+license, and the exact change made are in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); the app credits the source on screen
+whenever that demo is open. If the ArbiterOS maintainers would rather this copy not be
+redistributed, open an issue and it will be removed.
+
+Real data is a deliberate choice — a viewer demonstrated on invented records proves
+nothing about whether it can read yours — but it comes with the obligation to say whose
+data it is, every time.
+
 ## The privacy property, precisely
 
 This is a static site. There is no backend, no database, no account, no telemetry, and
@@ -88,8 +102,9 @@ wanted to show, not on a homepage:
 <your-pages-url>/?demo=arbiteros-preview&record=cases.json:57
 ```
 
-Record ids are `<file-name>:<index>` (a bare index when a single file is browsed
-raw). They deliberately contain no `#`, so the link survives being pasted, retyped or
+Record ids are always `<file-name>:<index>`; a bare index is also accepted, so a
+hand-shortened link still lands. They deliberately contain no `#`, which a browser would
+strip as a fragment — the link has to survive being pasted, retyped or
 line-wrapped by a mail client. A `?demo=` this build does not know, and a `?record=`
 that matches nothing, both say so on screen rather than failing silently.
 
@@ -137,7 +152,7 @@ Two layers, and the boundary between them is the whole design:
 shell/      drag-drop · parse worker · sniffing · virtual list · router · theme · RawTree
               ↓  ParsedFile[]
 adapters/   arbiteros-preview/   ← ships now
-            rmr1/ promptwise/ arbiteros/ recmem/   ← M1..M4
+            rm-r1/ promptwise/ arbiteros/ recmem/   ← M1..M4
 ```
 
 The shell knows nothing about any format. Adapters know nothing about file loading,
@@ -162,13 +177,18 @@ An adapter is one directory under `src/adapters/` and one object:
 import type { Adapter, ParsedFile } from '../../types'
 
 export const myAdapter: Adapter<MyModel> = {
-  name: 'my-format',
-  label: 'My Format',
+  // Must equal the roadmap row id this adapter fills — `rm-r1`, `promptwise`,
+  // `arbiteros`, `recmem` — or the landing page shows two cards for it: yours,
+  // and the "planned" one it could not match. `<row>-<suffix>` marks a preview
+  // of `<row>`, which is why the shipped one is `arbiteros-preview`.
+  name: 'rm-r1',
+  label: 'RM-R1 evaluation logs',
   blurb: 'One line describing what this adapter reads.',
 
   // 0 = not mine, 1 = certain. Only the first few records of each file are
-  // passed, so this stays cheap on a 22 MB file.
-  sniff(fileName, firstRecords) {
+  // passed, so this stays cheap on a 22 MB file. Underscore the file name if you
+  // fingerprint on fields alone: `noUnusedParameters` is on.
+  sniff(_fileName, firstRecords) {
     return looksLikeMine(firstRecords) ? 0.8 : 0
   },
 
@@ -178,9 +198,17 @@ export const myAdapter: Adapter<MyModel> = {
     return buildModel(files)
   },
 
-  View: MyView, // React.FC<{ model: MyModel; recordId?: string }>
+  View: MyView, // FC<{ model: MyModel; recordId?: string }>
 
-  demos: [{ id: 'my-sample', label: 'Sample run', path: 'demo-data/my-format/sample.json' }],
+  demos: [
+    {
+      id: 'rm-r1',
+      label: 'Sample run',
+      path: 'demo-data/rm-r1/sample.json',
+      // Required. Demo packages republish other people's data; say whose.
+      credit: { text: 'Official 32B logs from RM-R1-UIUC/RM-R1', href: 'https://…' },
+    },
+  ],
 }
 ```
 
@@ -189,6 +217,8 @@ to the existing one — registration happens before the first render so the land
 can ask the registry what exists. From there, drag-drop, worker parsing, salvage,
 sniffing, `?demo=`/`?record=` routing and deployment are already done for you.
 
+That snippet compiles as written; if you change it, `npm run build` is the arbiter.
+
 Rendering is not: the shell hands your `View` the model and gets out of the way. If your
 view is a long list, use [`shell/VirtualList`](src/shell/VirtualList.tsx) — it is generic
 and takes a `renderRow`, but you have to opt into it. A view that maps 5,000 records to
@@ -196,7 +226,8 @@ and takes a `renderRow`, but you have to opt into it. A view that maps 5,000 rec
 
 **How sniffing resolves.** A file that declares a top-level
 `"agentlens_format": "<name>@<ver>"` hits that adapter directly — an explicit
-declaration is the only thing that ever scores 1. Everything else is scored by field
+declaration is by convention the only thing adapters score 1 for — the floor and the
+ordering are enforced in code, that ceiling is not. Everything else is scored by field
 fingerprint. A drop is one dataset, so an adapter's score is the *mean* of its per-file
 scores, and the highest wins if it clears the confidence floor (0.5, in
 [`src/shell/sniff.ts`](src/shell/sniff.ts)). Below the floor nobody owns the data and it
@@ -215,8 +246,8 @@ claim capability:
 
 | Adapter | Artifacts it will read | Status |
 | --- | --- | --- |
-| `rmr1` | RM-R1 reward-model evaluation logs (RewardBench, RM-Bench, RMB) | Planned — M1 |
-| `promptwise` | PromptWise prompt-optimisation traces | Planned — M2 |
+| `rm-r1` | RM-R1 reward-model evaluation logs (RewardBench, RM-Bench, RMB) | Planned — M1 |
+| `promptwise` | PromptWise cost-aware model-routing decisions | Planned — M2 |
 | `arbiteros` | ArbiterOS agent traces, including Kernel redteam cases | Preview ships now (`arbiteros-preview`, list only) — full trace view M3 |
 | `recmem` | RecMem memory stores | Planned — M4 |
 
