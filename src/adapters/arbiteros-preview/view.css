@@ -1,0 +1,44 @@
+/* The preview's own layout. Colours are tokens from index.css and the row itself
+   is the shell's `.list-row` — an adapter arranges shell primitives, it does not
+   restyle them. */
+
+.cases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  height: 100%;
+  min-height: 0;
+}
+
+.cases-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* The virtualizer owns the scrollbar, so this pane is bounded and never grows
+   with the record count. */
+.cases-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.case-row[aria-current='true'] {
+  background: var(--bg-selected);
+}
+
+/* The trace id is the identity of the case, so the action gives way first. */
+.case-trace {
+  flex: 2 1 24ch;
+}
+
+.case-action {
+  flex: 1 1 16ch;
+  color: var(--text-muted);
+}

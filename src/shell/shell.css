@@ -1,0 +1,201 @@
+/* Styles for the three shell components: DropZone, VirtualList, RawTree.
+   Tokens come from index.css; nothing here defines a colour of its own. The
+   base `.dropzone`, `.btn` and `.sr-only` rules also live there — this file
+   only adds what those three components need on top. */
+
+/* ---------------------------------------------------------------- DropZone */
+
+.dropzone-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dropzone-sub {
+  max-width: 46ch;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.dropzone-note {
+  min-height: 1.5em;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+.dropzone.busy {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+/* The zone is not itself a control — its buttons are — so it never takes focus.
+   This makes the region light up when focus is on one of them, which is what
+   tells a keyboard user that the big dashed box is what they are operating.
+   The dashes going solid is the non-colour half of the cue. */
+.dropzone:focus-within {
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+/* ------------------------------------------------------------- VirtualList */
+
+.vlist {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.vlist-canvas {
+  position: relative;
+  width: 100%;
+}
+
+/* `contain: layout` keeps one row's reflow from costing the whole canvas —
+   it matters at 3k measured rows. */
+.vlist-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  contain: layout;
+  overflow-wrap: anywhere;
+}
+
+.vlist-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 120px;
+  padding: var(--sp-5);
+  font-size: var(--fs-sm);
+  color: var(--text-faint);
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------ RawTree */
+
+.tree {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+}
+
+.tree-children {
+  margin: 0;
+  padding: 0 0 0 var(--sp-4);
+  list-style: none;
+  border-left: 1px solid var(--border);
+}
+
+.tree-children.is-root {
+  padding-left: 0;
+  border-left: 0;
+}
+
+.tree-node {
+  min-width: 0;
+}
+
+.tree-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: 1px 0;
+  min-width: 0;
+}
+
+.tree-line:hover {
+  background: var(--bg-hover);
+}
+
+button.tree-toggle {
+  flex: none;
+  width: 1.1em;
+  padding: 0;
+  font-size: var(--fs-xs);
+  line-height: inherit;
+  color: var(--text-faint);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+button.tree-toggle:hover:not(:disabled) {
+  color: var(--text);
+  background: none;
+  border: 0;
+}
+
+.tree-bullet {
+  flex: none;
+  width: 1.1em;
+}
+
+.tree-key {
+  flex: none;
+  color: var(--info);
+}
+
+.tree-summary,
+.tree-range {
+  color: var(--text-faint);
+}
+
+.tree-val {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Reasoning traces are full of newlines; showing them as one run of text
+   misrepresents the record. */
+.tree-val.is-string {
+  color: var(--ok);
+  white-space: pre-wrap;
+}
+
+.tree-val.is-num {
+  color: var(--accent);
+}
+
+.tree-val.is-bool {
+  color: var(--warn);
+}
+
+.tree-val.is-nil,
+.tree-val.is-other {
+  color: var(--text-faint);
+}
+
+button.tree-more {
+  padding: 0 var(--sp-1);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  line-height: inherit;
+  color: var(--accent);
+  background: none;
+  border: 0;
+}
+
+button.tree-more:hover:not(:disabled) {
+  background: none;
+  border: 0;
+  text-decoration: underline;
+}
+
+.tree-flag {
+  flex: none;
+  padding: 0 var(--sp-1);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-radius: var(--radius-sm);
+}

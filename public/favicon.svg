@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- A lens over three log lines. Accent blue reads on both a light and a dark tab strip. -->
+  <g fill="none" stroke="#1f6feb" stroke-width="3" stroke-linecap="round">
+    <path d="M5 8h9M5 15h6M5 22h8" opacity=".55" />
+    <circle cx="20" cy="14" r="7" />
+    <path d="M25.5 19.5 29 23" />
+  </g>
+</svg>

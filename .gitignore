@@ -1,0 +1,49 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+*.tsbuildinfo
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Secrets (the app has no backend, but keep the habit)
+.env
+.env.*
+!.env.example
+
+# --- Research artifacts used for local testing -------------------------------
+# The real inputs are 15-22 MB eval logs. Keep them out of the repo: put local
+# samples in one of these directories, or drop them straight into the browser.
+/testdata/
+/samples/
+/.scratch/
+
+# Loose logs dumped at the repo root. Root-level *.json is ignored by default,
+# so every genuine root config must be re-allowed below.
+/*.json
+/*.jsonl
+!/package.json
+!/package-lock.json
+!/tsconfig.json
+!/tsconfig.app.json
+!/tsconfig.test.json
+!/tsconfig.node.json
+!/.oxlintrc.json

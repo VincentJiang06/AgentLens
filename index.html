@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+
+    <title>AgentLens — a local-first viewer for LLM &amp; agent research artifacts</title>
+    <meta
+      name="description"
+      content="Read evaluation logs, agent traces, memory stores and router decisions right where they are. AgentLens is a static site with no backend: all data stays in your browser — nothing is uploaded."
+    />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="AgentLens — a local-first viewer for LLM &amp; agent research artifacts" />
+    <meta
+      property="og:description"
+      content="Drop in your eval logs or agent traces. All data stays in your browser — nothing is uploaded."
+    />
+    <meta name="twitter:card" content="summary" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      AgentLens reads your files in the browser and needs JavaScript to run. It has no
+      backend: all data stays in your browser — nothing is uploaded.
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,754 @@
+/* AgentLens — a data viewer, not a landing page. Dense, quiet, information
+   first. Tokens, then base elements, then the layout primitives every view
+   shares. `shell/theme.ts` owns the data-theme attribute on :root. */
+
+/* ------------------------------------------------------------------ tokens */
+
+:root {
+  color-scheme: light;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+
+  /* Six steps, no more. Density beats variety when the screen is full of logs. */
+  --fs-xs: 0.6875rem; /* 11px — labels, counts */
+  --fs-sm: 0.75rem; /* 12px — controls, table cells */
+  --fs-base: 0.8125rem; /* 13px — body */
+  --fs-md: 0.9375rem; /* 15px — lead paragraph */
+  --fs-lg: 1.125rem; /* 18px — section heading */
+  --fs-xl: 1.5rem; /* 24px — page title */
+
+  --lh-tight: 1.25;
+  --lh-base: 1.5;
+  --lh-loose: 1.65;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  --radius-sm: 3px;
+  --radius: 5px;
+  --radius-lg: 8px;
+
+  --topbar-h: 44px;
+  --statusbar-h: 26px;
+  --row-h: 28px;
+  --content-max: 1180px;
+
+  --bg: #ffffff;
+  --bg-sunken: #f4f6f8;
+  --bg-raised: #ffffff;
+  --bg-inset: #f1f3f6;
+  --bg-hover: #eaeef3;
+  --bg-selected: #dbe7fb;
+  --border: #dbe0e6;
+  --border-strong: #c0c7d1;
+  --text: #14171c;
+  --text-muted: #59626e;
+  /* --text-faint carries content, not decoration: pane titles, record indices,
+     tree summaries. It must clear WCAG AA 4.5:1 on every surface it lands on.
+     Measured: 5.38 on --bg/--bg-raised, 4.97 --bg-sunken, 4.84 --bg-inset,
+     4.62 --bg-hover, 4.66 --accent-soft. --bg-selected is the one surface it
+     cannot also clear without becoming darker than --text-muted; see the
+     selected-row rule below. */
+  --text-faint: #636b77;
+  --accent: #1f6feb;
+  --accent-hover: #1a5ed0;
+  --accent-fg: #ffffff;
+  --accent-soft: #e6efff;
+  --ok: #1a7f37;
+  --ok-soft: #e3f5e8;
+  --warn: #955700;
+  --warn-soft: #fbf0d5;
+  --bad: #c02626;
+  --bad-soft: #fde8e8;
+  --info: #6f42c1;
+  --info-soft: #efe8fb;
+  --shadow: 0 1px 2px rgb(16 20 26 / 6%), 0 8px 24px rgb(16 20 26 / 8%);
+}
+
+/* The dark palette is written twice on purpose: once as the pre-JS system
+   default, once for the explicit toggle. The :not() is what lets a reader keep
+   light mode on a dark OS — without it the media query would win. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --bg: #0f1216;
+    --bg-sunken: #0a0c0f;
+    --bg-raised: #161a20;
+    --bg-inset: #12161b;
+    --bg-hover: #1c212a;
+    --bg-selected: #1d3251;
+    --border: #262c35;
+    --border-strong: #3a424e;
+    --text: #e4e8ee;
+    --text-muted: #98a2b0;
+    /* 5.51 on --bg, 5.13 --bg-raised, 5.75 --bg-sunken, 5.33 --bg-inset,
+       4.74 --bg-hover, 4.62 --accent-soft. See the light block. */
+    --text-faint: #828c9a;
+    --accent: #4c8dff;
+    --accent-hover: #74a7ff;
+    --accent-fg: #08111f;
+    --accent-soft: #16233a;
+    --ok: #3fb950;
+    --ok-soft: #10261a;
+    --warn: #d29922;
+    --warn-soft: #2a2113;
+    --bad: #f85149;
+    --bad-soft: #2d1618;
+    --info: #a371f7;
+    --info-soft: #221a35;
+    --shadow: 0 1px 2px rgb(0 0 0 / 50%), 0 8px 24px rgb(0 0 0 / 50%);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #0f1216;
+  --bg-sunken: #0a0c0f;
+  --bg-raised: #161a20;
+  --bg-inset: #12161b;
+  --bg-hover: #1c212a;
+  --bg-selected: #1d3251;
+  --border: #262c35;
+  --border-strong: #3a424e;
+  --text: #e4e8ee;
+  --text-muted: #98a2b0;
+  /* Same measured ratios as the media-query block above. */
+  --text-faint: #828c9a;
+  --accent: #4c8dff;
+  --accent-hover: #74a7ff;
+  --accent-fg: #08111f;
+  --accent-soft: #16233a;
+  --ok: #3fb950;
+  --ok-soft: #10261a;
+  --warn: #d29922;
+  --warn-soft: #2a2113;
+  --bad: #f85149;
+  --bad-soft: #2d1618;
+  --info: #a371f7;
+  --info-soft: #221a35;
+  --shadow: 0 1px 2px rgb(0 0 0 / 50%), 0 8px 24px rgb(0 0 0 / 50%);
+}
+
+/* A selected row paints --bg-selected, the one surface --text-faint cannot clear
+   4.5:1 on (4.32 light, 3.79 dark) without going darker than --text-muted and
+   collapsing the two steps into one colour. Re-point the token instead:
+   --text-muted measures 4.96 light / 5.00 dark there, and a selected row has no
+   business de-emphasising its own metadata. Keyed on the ARIA state rather than
+   a component class so a row added in a later milestone inherits the fix. */
+[aria-selected='true'],
+[aria-current='true'] {
+  --text-faint: var(--text-muted);
+}
+
+/* -------------------------------------------------------------------- base */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 3px solid transparent;
+  border-radius: 6px;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* The focus indicator is the ring appearing at all — a shape change, not a
+   recolouring — so it survives being read by someone who cannot separate the
+   two hues. --accent also clears the 3:1 non-text minimum on every surface it
+   can be drawn against: worst case 3.72:1 (light, on --bg-selected) and
+   4.03:1 (dark, same surface). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  color: var(--text);
+}
+
+h1 {
+  font-size: var(--fs-xl);
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: var(--fs-lg);
+}
+
+h3 {
+  font-size: var(--fs-md);
+}
+
+h4 {
+  font-size: var(--fs-base);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+code {
+  padding: 1px 4px;
+  background: var(--bg-inset);
+  border-radius: var(--radius-sm);
+}
+
+pre {
+  margin: 0;
+  padding: var(--sp-3);
+  overflow: auto;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  line-height: var(--lh-base);
+  tab-size: 2;
+}
+
+pre code {
+  padding: 0;
+  background: none;
+}
+
+kbd {
+  padding: 1px 5px;
+  font-size: var(--fs-xs);
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+}
+
+hr {
+  height: 1px;
+  margin: var(--sp-4) 0;
+  border: 0;
+  background: var(--border);
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+th,
+td {
+  padding: var(--sp-1) var(--sp-3);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+th {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- controls */
+
+button,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.2;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+button:hover:not(:disabled),
+.btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  text-decoration: none;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary,
+.btn.primary {
+  color: var(--accent-fg);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+button.primary:hover:not(:disabled),
+.btn.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+button.ghost,
+.btn.ghost {
+  color: var(--text-muted);
+  background: transparent;
+  border-color: transparent;
+}
+
+button.ghost:hover:not(:disabled),
+.btn.ghost:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+  border-color: transparent;
+}
+
+button.icon {
+  padding: 6px;
+}
+
+input,
+select,
+textarea {
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-faint);
+}
+
+/* The global :focus-visible outline stays; this only sharpens the field itself. */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: var(--accent);
+}
+
+/* -------------------------------------------------------- layout primitives */
+
+/* The app owns the viewport; every scrollbar belongs to an inner pane.
+   `min-height: 0` is load-bearing — without it a grid/flex child refuses to
+   shrink and the virtual list grows the page instead of scrolling. */
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  background: var(--bg-sunken);
+}
+
+.app-main {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  min-height: 0;
+}
+
+.scroll {
+  min-height: 0;
+  overflow: auto;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: var(--topbar-h);
+  padding: 0 var(--sp-4);
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+}
+
+.statusbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: var(--statusbar-h);
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  background: var(--bg-sunken);
+  border-top: 1px solid var(--border);
+}
+
+.container {
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--sp-5) var(--sp-4);
+}
+
+/* Vertical rhythm without margins on children. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-height: 0;
+}
+
+/* Horizontal run of controls that wraps rather than overflows. */
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 30px;
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  text-align: left;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+/* A card that is itself one click target — the landing page's "Open demo". */
+a.card,
+button.card {
+  color: inherit;
+  cursor: pointer;
+  white-space: normal;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+a.card:hover,
+button.card:hover {
+  background: var(--bg-raised);
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+  text-decoration: none;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--sp-3);
+}
+
+/* Key/value pairs, aligned on the key column. */
+.kv {
+  display: grid;
+  grid-template-columns: minmax(90px, max-content) 1fr;
+  gap: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-sm);
+}
+
+.kv > dt {
+  color: var(--text-faint);
+}
+
+.kv > dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.notice {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.notice.ok {
+  color: var(--ok);
+  background: var(--ok-soft);
+  border-color: transparent;
+}
+
+.notice.warn {
+  color: var(--warn);
+  background: var(--warn-soft);
+  border-color: transparent;
+}
+
+.notice.bad {
+  color: var(--bad);
+  background: var(--bad-soft);
+  border-color: transparent;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 1px 6px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.badge.ok {
+  color: var(--ok);
+  background: var(--ok-soft);
+}
+
+.badge.warn {
+  color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.badge.bad {
+  color: var(--bad);
+  background: var(--bad-soft);
+}
+
+.badge.info {
+  color: var(--info);
+  background: var(--info-soft);
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-7) var(--sp-4);
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--bg-raised);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  transition:
+    border-color 0.12s ease,
+    background-color 0.12s ease;
+}
+
+.dropzone.over {
+  color: var(--text);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+/* One row of a virtual list. Fixed height keeps the measurement honest. */
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: var(--row-h);
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+}
+
+.list-row:hover {
+  background: var(--bg-hover);
+}
+
+.list-row[aria-selected='true'] {
+  background: var(--bg-selected);
+}
+
+.list-index {
+  flex: none;
+  width: 5ch;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-align: right;
+  color: var(--text-faint);
+}
+
+/* --------------------------------------------------------------- utilities */
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.faint {
+  color: var(--text-faint);
+}
+
+.small {
+  font-size: var(--fs-sm);
+}
+
+.lead {
+  font-size: var(--fs-md);
+  line-height: var(--lh-loose);
+  color: var(--text-muted);
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* Hides from sight only. A control given this class is still in the tab order,
+   so anything not meant to be tabbed to needs tabindex="-1" of its own — see
+   the two file inputs in DropZone. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

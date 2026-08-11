@@ -1,0 +1,62 @@
+/* Raw record browser: list on the left, one record's tree on the right. */
+
+.browser {
+  display: grid;
+  grid-template-columns: minmax(280px, 2fr) 3fr;
+  gap: var(--sp-3);
+  min-height: 0;
+  height: 100%;
+}
+
+.browser-list,
+.browser-detail {
+  min-height: 0;
+}
+
+/* The list pane never scrolls itself — the virtualizer owns that scrollbar. */
+.browser-list > .panel-body {
+  overflow: hidden;
+}
+
+/* A row is a button, so it inherits the control styling; undo the parts of it
+   that do not belong on a 28px list row. */
+.browser button.record-row {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  text-align: left;
+  min-width: 0;
+}
+
+.browser button.record-row:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+.browser button.record-row[aria-current='true'] {
+  background: var(--bg-selected);
+}
+
+/* The preview gives way first: a file name truncated to "tot…" identifies nothing. */
+.record-file {
+  flex: 0 0 auto;
+  max-width: 24ch;
+  color: var(--text-faint);
+}
+
+.record-preview {
+  flex: 1 1 auto;
+  color: var(--text-muted);
+}
+
+.browser-hint {
+  padding: var(--sp-4);
+}
+
+@media (max-width: 860px) {
+  .browser {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(160px, 40%) 1fr;
+  }
+}

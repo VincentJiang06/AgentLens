@@ -1,0 +1,122 @@
+/* App-level layout only. Everything visual comes from the tokens and primitives
+   in index.css; this file just arranges them. */
+
+.brand {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* The privacy claim is the product's main promise, so it stays in the top bar at
+   every width — truncated on a phone rather than hidden. */
+.privacy {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* ----------------------------------------------------------------- landing */
+
+.landing {
+  gap: var(--sp-5);
+  padding-bottom: var(--sp-7);
+}
+
+.card-head {
+  gap: var(--sp-2);
+  width: 100%;
+}
+
+.card.is-planned {
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  border-style: dashed;
+}
+
+/* ----------------------------------------------------------------- loading */
+
+.loading {
+  max-width: 520px;
+  gap: var(--sp-3);
+}
+
+.progress {
+  height: 6px;
+  overflow: hidden;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.progress-fill {
+  height: 100%;
+  min-width: 2px;
+  background: var(--accent);
+  transition: width 0.1s linear;
+}
+
+/* ----------------------------------------------------------------- dataset */
+
+.dataset {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: var(--sp-2);
+  height: 100%;
+  min-height: 0;
+  padding: var(--sp-3);
+}
+
+.dataset-head {
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+/* The label doubles as the copy's status line ("Link copied", "Copy failed …"),
+   so it truncates instead of pushing Close off a narrow screen. */
+.copy-link {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dataset-notices {
+  gap: var(--sp-2);
+}
+
+.dataset-notices:empty {
+  display: none;
+}
+
+.dataset-body {
+  min-height: 0;
+}
+
+.dataset-fallback {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: var(--sp-2);
+  height: 100%;
+  min-height: 0;
+}
+
+.adapter-view {
+  padding: var(--sp-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* `.notice` is a single baseline-aligned row; a notice that carries excerpts is
+   a column instead. */
+.problems {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-1);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .dataset {
+    padding: var(--sp-2);
+  }
+}

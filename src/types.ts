@@ -1,0 +1,113 @@
+/**
+ * AgentLens shared contracts.
+ *
+ * Everything in `shell/` and every adapter under `adapters/` codes against this
+ * file. Adapters never import from each other.
+ */
+
+import type { FC } from 'react'
+
+/* ------------------------------------------------------------------ parsing */
+
+/** One record recovered from a file, plus where it came from. */
+export interface ParsedRecord {
+  /** Index within the source file, 0-based. Stable across reloads. */
+  index: number
+  value: unknown
+}
+
+/** A line/segment we could not turn into JSON. Kept so the UI can show counts. */
+export interface ParseProblem {
+  /** 1-based line number when known, else the byte offset we gave up at. */
+  at: number
+  kind: 'malformed-json' | 'unterminated' | 'unexpected-eof'
+  /** Truncated to ~200 chars — never hold whole records here. */
+  excerpt: string
+}
+
+export type ParseShape = 'json-array' | 'json-object' | 'jsonl' | 'unknown'
+
+/** What the worker hands back once a file is fully consumed. */
+export interface ParsedFile {
+  fileName: string
+  /** Bytes, as reported by the File object. */
+  size: number
+  shape: ParseShape
+  records: ParsedRecord[]
+  problems: ParseProblem[]
+  /**
+   * True when the strict parse failed and we fell back to salvage mode.
+   * The UI must surface this — a partially recovered file is not the same
+   * claim as a cleanly parsed one.
+   */
+  salvaged: boolean
+  /** Set when the file declares `"agentlens_format": "<name>@<ver>"`. */
+  declaredFormat?: string
+}
+
+/* --------------------------------------------------- worker message protocol */
+
+export type ParseRequest = { id: string; file: File }
+
+export type ParseResponse =
+  | { id: string; type: 'progress'; bytesRead: number; totalBytes: number; recordCount: number }
+  | { id: string; type: 'batch'; records: ParsedRecord[] }
+  | { id: string; type: 'done'; result: Omit<ParsedFile, 'records'> & { records: ParsedRecord[] } }
+  | { id: string; type: 'error'; message: string }
+
+/* ----------------------------------------------------------------- adapters */
+
+/**
+ * Confidence that a file belongs to an adapter.
+ * 0 = not mine. 1 = certain (only ever returned for an explicit
+ * `agentlens_format` declaration).
+ */
+export type Confidence = number
+
+export interface DemoPackage {
+  /** `?demo=<id>`. Global across adapters, so keep it specific. */
+  id: string
+  label: string
+  /**
+   * Resolved against `import.meta.env.BASE_URL`, nothing else. Packages live in
+   * `public/demo-data/<adapter>/`, so in practice this reads
+   * `demo-data/<adapter>/<file>.json` — the prefix is part of the path, not added.
+   */
+  path: string
+}
+
+export interface Adapter<Model = unknown> {
+  /**
+   * Registry key, and what the landing page matches against the roadmap. An
+   * adapter named `<row>-<suffix>` is treated as a preview of roadmap row
+   * `<row>` (`arbiteros-preview` previews `arbiteros`).
+   */
+  name: string
+  /** Title of this adapter's landing-page card. */
+  label: string
+  /** One line, English — the card's body, and what a visiting PI reads first. */
+  blurb: string
+  /**
+   * Field-fingerprint match. Receives the file name and the first few records
+   * so it can look at keys without holding the whole file.
+   */
+  sniff(fileName: string, firstRecords: unknown[]): Confidence
+  /** Turn raw parsed files into whatever the views need. May throw; shell catches. */
+  parse(files: ParsedFile[]): Model
+  /** Rendered when this adapter owns the current data. */
+  View: FC<{ model: Model; recordId?: string }>
+  demos?: DemoPackage[]
+}
+
+/* ------------------------------------------------------------------- router */
+
+export interface RouteState {
+  /** `?demo=<id>` — preload the demo package registered under that id. */
+  demo?: string
+  /**
+   * `&record=<id>` — scroll to / open one record. Adapters interpret this.
+   * Ids must be URL-safe without encoding: a `#` is eaten as a fragment when a
+   * link is retyped or pasted, which silently breaks the link.
+   */
+  record?: string
+}
