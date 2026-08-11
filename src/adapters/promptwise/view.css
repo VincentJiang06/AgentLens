@@ -1,0 +1,210 @@
+/* The PromptWise tab shell. Three rows: the tabs, what the model knows that the
+   numbers do not say, and whichever view is showing — which owns its own
+   scrolling, so the panel area is bounded and never grows the page.
+
+   Every colour is a token from index.css. The `pwv-` prefix is this shell's
+   alone: `pw-` belongs to charts.css and `rp-` to replay.css, and a tab strip
+   that restyled the views inside it would be the one file able to break all
+   three at once. */
+
+.pwv {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: var(--sp-2);
+  height: 100%;
+  min-height: 0;
+}
+
+.pwv-tabs {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.pwv-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: var(--sp-2) var(--sp-3);
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  /* The strip sits on the border, so the active tab can cover it. */
+  margin-bottom: -1px;
+}
+
+.pwv-tab:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+/* Selection is carried by the surface, the border and the weight — never by
+   colour alone, which is also what keeps it legible on a projector. */
+.pwv-tab.is-active {
+  font-weight: 600;
+  background: var(--bg-raised);
+  border-color: var(--border);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.pwv-tab-hint {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* ---------------------------------------------------------------- about box */
+
+/* Capped and scrolled rather than clipped: the headline note is a paragraph and
+   is rendered whole in both states, and the row below this one is the view the
+   reader came for. */
+.pwv-about {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-height: min(40vh, 32em);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* URLs and model ids are long and unbroken; they wrap rather than widen the
+     page. */
+  overflow-wrap: anywhere;
+}
+
+.pwv-about-head {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+}
+
+.pwv-about-title {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.pwv-about-chip {
+  padding: 1px 6px;
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.pwv-about-toggle {
+  padding: 2px var(--sp-2);
+  font-size: var(--fs-xs);
+}
+
+/* The disclosure that decides how every number below is read. Full weight of
+   the body text, never truncated, on screen in both states. */
+.pwv-about-headline {
+  flex: none;
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text);
+}
+
+.pwv-about-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-height: 0;
+  overflow: auto;
+}
+
+.pwv-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0;
+  padding-left: var(--sp-4);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------- provenance and the run's setup */
+
+.pwv-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding-top: var(--sp-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+  border-top: 1px dashed var(--border-strong);
+}
+
+.pwv-block-title {
+  margin: 0;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pwv-block-note {
+  margin: 0;
+}
+
+.pwv-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0;
+}
+
+/* Label above value on a narrow screen, beside it once there is room. The label
+   is this project's word for the field; the value is the package's own text, so
+   the value gets the readable colour and the label stays quiet. */
+.pwv-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0 var(--sp-2);
+}
+
+.pwv-row > dt {
+  color: var(--text-muted);
+}
+
+.pwv-row > dd {
+  margin: 0;
+  color: var(--text);
+}
+
+@media (min-width: 720px) {
+  .pwv-row {
+    grid-template-columns: minmax(9em, 14em) minmax(0, 1fr);
+  }
+
+  .pwv-row > dt {
+    text-align: right;
+  }
+}
+
+.pwv-panel-area {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  .pwv-tab-hint {
+    display: none;
+  }
+
+  /* A phone has one screen, and the charts under this box need enough of it to
+     be charts. The headline note is still open and still first. */
+  .pwv-about {
+    max-height: 36vh;
+  }
+}

@@ -1,0 +1,363 @@
+/* Score dashboard layout. Every colour is a token from index.css, so both themes
+   and the contrast measurements documented there hold without a second palette. */
+
+.rmr1-dash {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bg-sunken);
+}
+
+.rmr1-dash-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--sp-4);
+}
+
+/* The panels scroll with the page: the dashboard is read top to bottom, and a
+   pane that scrolls inside a pane hides the bottom half of the matrix. */
+.rmr1-panel {
+  flex: none;
+}
+
+.rmr1-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  overflow: visible;
+}
+
+.rmr1-lede {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* A figure wider than the panel scrolls inside itself. `.panel` is
+   `overflow: hidden` and table heads do not wrap, so without this the columns
+   past the panel's right edge are unreachable rather than merely off-screen —
+   and the last column is always Δ. `min-width: 0` is what lets a flex item
+   become narrower than its content; without it the box grows and the page
+   scrolls sideways instead. */
+.rmr1-wide {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+/* It takes focus so the columns are reachable from the keyboard, and says so. */
+.rmr1-wide:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.rmr1-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0;
+  padding-left: var(--sp-4);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+}
+
+/* ----------------------------------------------------------- one run's numbers */
+
+/* Every figure belongs to exactly one run, so a run is a block with its name on
+   it rather than a legend somewhere else on the page. */
+.rb-run {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* Two runs on one screen need a visible seam; one run needs no decoration. */
+.rb-run + .rb-run {
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+
+.rb-run-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
+.rb-run-head .faint {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------- RewardBench sections */
+
+.rb-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--sp-2);
+}
+
+.rb-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.rb-section-name {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.rb-section-value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-tight);
+}
+
+.rb-section-meta {
+  font-size: var(--fs-xs);
+}
+
+/* ----------------------------------------------------------- RewardBench bars */
+
+.rb-bars {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.rb-bar-row {
+  display: grid;
+  grid-template-columns: minmax(12ch, 22ch) minmax(8ch, 10ch) 1fr 7ch 5ch 8ch;
+  align-items: center;
+  gap: var(--sp-3);
+  height: var(--row-h);
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  border-bottom: 1px solid var(--border);
+}
+
+.rb-bar-row:last-child {
+  border-bottom: 0;
+}
+
+/* No score file dropped in, so the Δ column has nothing to say and takes no room. */
+.rb-bars:not(.has-official) .rb-bar-row > :last-child {
+  display: none;
+}
+
+.rb-bars:not(.has-official) .rb-bar-row {
+  grid-template-columns: minmax(12ch, 22ch) minmax(8ch, 10ch) 1fr 7ch 5ch;
+}
+
+/* The head is the one row whose labels are words rather than numbers, so it
+   grows to fit them instead of clipping — "Δ score file" and "Δ 官方分数" both
+   need two lines in an 8ch column. */
+.rb-bar-head {
+  height: auto;
+  min-height: var(--row-h);
+  align-items: end;
+  padding-block: var(--sp-1);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  background: var(--bg-sunken);
+}
+
+/* Uppercase does nothing to Chinese and the tracking only pushes CJK glyphs
+   apart; the eyebrow labels keep their weight and lose the letter-spacing. The
+   section tiles are not in the list — those names are the benchmark's own words
+   and stay set as Latin. */
+:lang(zh) .rb-bar-head,
+:lang(zh) .rb-run-head .faint {
+  letter-spacing: 0;
+}
+
+.rb-num {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-align: right;
+}
+
+/* A file name is a datum. It keeps the case it was written in, including inside
+   a column head the base stylesheet would otherwise set in capitals — nobody
+   can grep the release for FINAL_RESULT.JSON. */
+.verbatim {
+  text-transform: none;
+}
+
+.rb-track {
+  height: 10px;
+  background: var(--bg-inset);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.rb-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+/* ------------------------------------------------------------- style matrices */
+
+.rmb-grids {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--sp-4);
+}
+
+.rmb-figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+}
+
+.rmb-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
+.rmb-grid {
+  display: grid;
+  grid-template-columns: minmax(9ch, max-content) repeat(3, minmax(64px, 1fr));
+  gap: 2px;
+}
+
+.rmb-corner,
+.rmb-colhead,
+.rmb-rowhead {
+  display: flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-tight);
+  color: var(--text-faint);
+}
+
+.rmb-colhead {
+  justify-content: center;
+  text-align: center;
+}
+
+/* Cells carry their own number, so colour is the second channel and never the
+   only one — the mix stays shallow enough that --text keeps its contrast on it
+   in both themes, which is what survives a projector. */
+.rmb-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-height: 52px;
+  padding: var(--sp-1);
+  background: color-mix(in srgb, var(--accent) calc(var(--fill, 20) * 1%), var(--bg-raised));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.rmb-value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  color: var(--text);
+}
+
+/* --text, not --text-muted: measured against the deepest fill this scale
+   produces (40% --accent), muted lands at 3.52:1 in both themes and --text at
+   7.39:1. Size carries the hierarchy here instead of colour. */
+.rmb-regime {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.rmb-cell.normal {
+  border-color: var(--border-strong);
+}
+
+/* A cell that repeats its neighbour under the shipped assembly. Dashed and
+   --info: it is a marker, not a warning. */
+.rmb-cell.marked {
+  outline: 2px dashed var(--info);
+  outline-offset: -3px;
+}
+
+.rmb-metrics {
+  width: auto;
+  min-width: min(100%, 520px);
+}
+
+.rmb-metrics td,
+.dom-table td {
+  font-size: var(--fs-sm);
+}
+
+/* ------------------------------------------------------------ domain breakdown */
+
+.dom-table td.rb-num {
+  position: relative;
+}
+
+/* The meter sits behind the number rather than beside it: the number is the
+   claim, the bar only makes the column scannable. */
+.dom-meter {
+  position: absolute;
+  left: var(--sp-3);
+  right: var(--sp-3);
+  bottom: 2px;
+  height: 3px;
+  background: var(--bg-inset);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.dom-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+@media (max-width: 720px) {
+  .rb-bar-row {
+    grid-template-columns: minmax(10ch, 16ch) 1fr 7ch 5ch 8ch;
+  }
+
+  .rb-bars:not(.has-official) .rb-bar-row {
+    grid-template-columns: minmax(10ch, 16ch) 1fr 7ch 5ch;
+  }
+
+  /* The section column is the one thing that goes — it repeats what the roll-up
+     cards above already group. Δ repeats nothing and is what the panel is about,
+     so instead of hiding it the rows keep a floor and the figure scrolls to
+     reach it. */
+  .rb-bar-row > :nth-child(2) {
+    display: none;
+  }
+
+  .rb-bars {
+    min-width: 22rem;
+  }
+}

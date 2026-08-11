@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { useT } from './lang'
 import './shell.css'
 
 export interface VirtualListProps<T> {
@@ -13,6 +14,7 @@ export interface VirtualListProps<T> {
   scrollToIndex?: number
   /** Defaults to the item's index, which is what `ParsedRecord.index` already is. */
   getKey?: (item: T, index: number) => string | number
+  /** Every caller knows why its own list is empty; the default only says that it is. */
   empty?: ReactNode
   className?: string
   label?: string
@@ -25,10 +27,11 @@ export function VirtualList<T>({
   overscan = 8,
   scrollToIndex,
   getKey,
-  empty = 'Nothing to show.',
+  empty,
   className,
   label,
 }: VirtualListProps<T>) {
+  const t = useT()
   const scrollRef = useRef<HTMLDivElement>(null)
   const count = items.length
 
@@ -83,7 +86,11 @@ export function VirtualList<T>({
   }, [scrollToIndex, count, virtualizer])
 
   if (count === 0) {
-    return <div className={['vlist-empty', className].filter(Boolean).join(' ')}>{empty}</div>
+    return (
+      <div className={['vlist-empty', className].filter(Boolean).join(' ')}>
+        {empty ?? t({ en: 'Nothing to show.', zh: '没有可显示的内容。' })}
+      </div>
+    )
   }
 
   return (

@@ -1,0 +1,504 @@
+/* Run Compare (V3). Every colour is a token from index.css, so both themes and
+   the forced-colours fallback come for free; this file only arranges the
+   shell's primitives (.panel, .list-row, .badge, .notice) around them. */
+
+.rc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  height: 100%;
+  min-height: 0;
+}
+
+.rc-head {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.rc-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.rc-picker-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.rc-picker select {
+  max-width: 42ch;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* Its own line under the pickers: it names files, so it must be allowed to wrap. */
+.rc-unpaired {
+  flex-basis: 100%;
+}
+
+/* Uppercase is a no-op on Chinese and the tracking only pushes CJK glyphs apart.
+   Only the eyebrows that are AgentLens's own words are listed: the `.rc-sub`
+   above the question carries a group id out of the data, and that one stays set
+   as Latin. */
+:lang(zh) .rc-picker-label,
+:lang(zh) .rc-axis,
+:lang(zh) .rc-response .rc-sub,
+:lang(zh) .rc-cor > .rc-sub {
+  letter-spacing: 0;
+}
+
+.rc-note {
+  flex: none;
+}
+
+.rc-note code {
+  white-space: nowrap;
+}
+
+/* Each panel states what its numbers are over, immediately under its own
+   header, because the header of the screen is scrolled past by the time the
+   numbers are read. `flex: none` keeps it out of the scrolling body: the
+   denominator must not scroll away from the figures it belongs to. */
+.rc-caption {
+  flex: none;
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border);
+}
+
+.rc-caption code {
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------- top summary */
+
+.rc-summary {
+  display: grid;
+  flex: none;
+  grid-template-columns: minmax(280px, 380px) 1fr;
+  gap: var(--sp-3);
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .rc-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The matrix panel sizes to its four cells; the deltas table takes the rest. */
+.rc-matrix {
+  align-self: stretch;
+}
+
+.rc-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr 1fr;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+}
+
+.rc-axis {
+  align-self: center;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.rc-axis-row {
+  padding-right: var(--sp-2);
+  text-align: right;
+}
+
+button.rc-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  align-items: flex-start;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-inset);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+}
+
+button.rc-cell:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+/* aria-pressed is the state; the border is only how it looks. */
+button.rc-cell[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.rc-cell-n {
+  font-family: var(--font-mono);
+  font-size: var(--fs-lg);
+  line-height: var(--lh-tight);
+}
+
+.rc-cell-pct,
+.rc-cell-label {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.rc-cell.tone-ok .rc-cell-n {
+  color: var(--ok);
+}
+
+.rc-cell.tone-bad .rc-cell-n {
+  color: var(--bad);
+}
+
+/* The two one-sided cells are what this view is for; they get the accent. */
+.rc-cell.tone-move .rc-cell-n {
+  color: var(--accent);
+}
+
+button.rc-indeterminate {
+  width: 100%;
+  justify-content: flex-start;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+
+button.rc-clear {
+  padding: 2px 6px;
+  font-size: var(--fs-xs);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+button.rc-clear[aria-pressed='true'] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ----------------------------------------------------------- group deltas */
+
+/* Room for the caption on top of the eight-or-so rows this used to hold. */
+.rc-deltas {
+  max-height: 268px;
+}
+
+.rc-delta-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-raised);
+}
+
+.rc-delta-table .rc-num {
+  font-family: var(--font-mono);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.rc-delta-table tr.is-active {
+  background: var(--bg-selected);
+}
+
+button.rc-link {
+  padding: 0;
+  font-size: inherit;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  white-space: normal;
+}
+
+button.rc-link:hover:not(:disabled) {
+  background: none;
+  border: 0;
+  text-decoration: underline;
+}
+
+/* Δ is drawn from the centre so a regression and a gain are the same shape. */
+.rc-bar {
+  display: inline-block;
+  position: relative;
+  width: 90px;
+  height: 8px;
+  margin-right: var(--sp-2);
+  vertical-align: middle;
+  background: var(--bg-inset);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.rc-bar-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+}
+
+.rc-bar-fill.up {
+  left: 50%;
+  background: var(--ok);
+}
+
+.rc-bar-fill.down {
+  right: 50%;
+  background: var(--bad);
+}
+
+.rc-delta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.rc-delta.up {
+  color: var(--ok);
+}
+
+.rc-delta.down {
+  color: var(--bad);
+}
+
+/* ------------------------------------------------------------ list + detail */
+
+.rc-split {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(320px, 44%) 1fr;
+  gap: var(--sp-3);
+  min-height: 420px;
+}
+
+@media (max-width: 900px) {
+  .rc-split {
+    grid-template-columns: 1fr;
+    grid-template-rows: 260px 1fr;
+  }
+}
+
+.rc-list,
+.rc-detail {
+  min-height: 0;
+}
+
+/* The list is a sample of what the panels above are over, and says so here
+   rather than in a header the reader has already passed. */
+.rc-scope {
+  background: var(--bg-inset);
+}
+
+.rc-filter {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+
+/* The row is a control, so it is a button; these five lines undo the button
+   chrome the base stylesheet gives every button. */
+button.rc-row {
+  width: 100%;
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+button.rc-row:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border);
+}
+
+button.rc-row[aria-current='true'] {
+  background: var(--bg-selected);
+}
+
+/* Correct/wrong is carried by shape as well as colour: right is a filled disc,
+   wrong a ring, unknown a dash. */
+.rc-mark {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+
+.rc-mark.ok {
+  background: var(--ok);
+}
+
+.rc-mark.bad {
+  border: 2px solid var(--bad);
+}
+
+.rc-mark.unknown {
+  height: 2px;
+  border-radius: 0;
+  background: var(--text-faint);
+}
+
+.rc-group {
+  flex: none;
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rc-style {
+  flex: none;
+  font-size: var(--fs-xs);
+}
+
+.rc-question {
+  flex: 1 1 20ch;
+  color: var(--text-muted);
+}
+
+.rc-detail-body {
+  padding: var(--sp-3);
+}
+
+.rc-pair {
+  gap: var(--sp-3);
+}
+
+.rc-sub {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.rc-question-full p {
+  margin: var(--sp-1) 0 0;
+  white-space: pre-wrap;
+}
+
+.rc-responses-grid,
+.rc-cors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .rc-responses-grid,
+  .rc-cors {
+    grid-template-columns: 1fr;
+  }
+}
+
+.rc-cor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: var(--sp-3);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.rc-cor-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.rc-cor-file {
+  font-size: var(--fs-xs);
+}
+
+.rc-badges {
+  gap: var(--sp-1);
+}
+
+.rc-criteria {
+  margin: 0;
+  padding-left: var(--sp-5);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+}
+
+.rc-evidence {
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-sm);
+}
+
+.rc-evidence li {
+  display: flex;
+  gap: var(--sp-2);
+  padding: var(--sp-1) 0;
+  border-top: 1px solid var(--border);
+}
+
+.rc-span {
+  min-width: 0;
+  color: var(--text-muted);
+}
+
+/* The judge's own text: wrapped, never reflowed into one paragraph, and bounded
+   so a 50k-token answer cannot push the other run's column off the screen. */
+.rc-text {
+  max-height: 22em;
+  margin: var(--sp-1) 0 0;
+  overflow: auto;
+  font-size: var(--fs-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.rc-eval {
+  max-height: 34em;
+}
+
+.rc-cor summary,
+.rc-responses summary {
+  font-size: var(--fs-sm);
+  color: var(--accent);
+  cursor: pointer;
+}
+
+/* --------------------------------------------------------------- empty state */
+
+.rc-empty {
+  max-width: 78ch;
+  padding: var(--sp-4) 0;
+}
+
+.rc-loaded {
+  margin: 0;
+  padding-left: var(--sp-5);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
+}

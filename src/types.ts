@@ -6,6 +6,7 @@
  */
 
 import type { FC } from 'react'
+import type { Str } from './shell/lang'
 
 /* ------------------------------------------------------------------ parsing */
 
@@ -21,8 +22,17 @@ export interface ParseProblem {
   /** 1-based line number when known, else the byte offset we gave up at. */
   at: number
   kind: 'malformed-json' | 'unterminated' | 'unexpected-eof'
-  /** Truncated to ~200 chars — never hold whole records here. */
-  excerpt: string
+  /**
+   * Why this segment could not be read, plus the offending bytes. Truncated to
+   * ~200 chars — never hold whole records here.
+   *
+   * A `Str`, like every other sentence AgentLens writes: this one is drawn at
+   * the top of a dataset's notice stack, above notices that are already
+   * translated, and it is shown to the reader whose own file just failed. The
+   * quoted bytes inside it are the file's and read the same on both sides;
+   * `shell/parse.ts` is where that split is made.
+   */
+  excerpt: Str
 }
 
 export type ParseShape = 'json-array' | 'json-object' | 'jsonl' | 'unknown'

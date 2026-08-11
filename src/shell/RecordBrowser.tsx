@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { ParsedFile } from '../types'
 import { RawTree } from './RawTree'
+import { useT } from './lang'
 import { VirtualList } from './VirtualList'
 import './RecordBrowser.css'
 
@@ -11,6 +12,10 @@ import './RecordBrowser.css'
  *
  * Previews are built inside `renderRow`, so only the ~20 visible rows of a 2985
  * record file are ever inspected.
+ *
+ * Like `RawTree`, this shows every field a dropped file carries. The redaction
+ * promise applies to what AgentLens ships, not to what it shows a reader of
+ * their own file; `App.tsx`'s RawScopeNote renders that above this view.
  */
 
 const ROW_HEIGHT = 28
@@ -76,6 +81,7 @@ export interface RecordBrowserProps {
 }
 
 export function RecordBrowser({ files, recordId, onSelect }: RecordBrowserProps) {
+  const t = useT()
   const records = useMemo(() => flattenRecords(files), [files])
   const showFileName = files.length > 1
 
@@ -96,9 +102,16 @@ export function RecordBrowser({ files, recordId, onSelect }: RecordBrowserProps)
     <div className="browser">
       <section className="panel browser-list">
         <header className="panel-header">
-          {records.length.toLocaleString()} records
+          {/* English inflects at one, Chinese does not: 条 is a measure word and
+              takes the same form whatever the numeral in front of it is. */}
+          {t({
+            en: `${records.length.toLocaleString()} record${records.length === 1 ? '' : 's'}`,
+            zh: `${records.length.toLocaleString()} 条记录`,
+          })}
           {records.length > 0 && recordId !== undefined && selectedIndex < 0 && (
-            <span className="badge warn">no record “{recordId}” here</span>
+            <span className="badge warn">
+              {t({ en: `no record “${recordId}” here`, zh: `这里没有记录「${recordId}」` })}
+            </span>
           )}
         </header>
         <div className="panel-body fill">
@@ -107,8 +120,15 @@ export function RecordBrowser({ files, recordId, onSelect }: RecordBrowserProps)
             estimateSize={ROW_HEIGHT}
             scrollToIndex={selectedIndex >= 0 ? selectedIndex : undefined}
             getKey={(record) => record.id}
-            label="Parsed records"
-            empty={<span className="muted">No records were recovered from these files.</span>}
+            label={t({ en: 'Parsed records', zh: '已解析的记录' })}
+            empty={
+              <span className="muted">
+                {t({
+                  en: 'No records were recovered from these files.',
+                  zh: '这些文件里没有抢救出任何记录。',
+                })}
+              </span>
+            }
             renderRow={(record) => (
               <button
                 type="button"
@@ -127,7 +147,10 @@ export function RecordBrowser({ files, recordId, onSelect }: RecordBrowserProps)
 
       <section className="panel browser-detail">
         <header className="panel-header">
-          {selected ? `record ${selected.id}` : 'record'}
+          {/* The id is `<file>:<index>` — the file's own name, so it is not translated. */}
+          {selected
+            ? t({ en: `record ${selected.id}`, zh: `记录 ${selected.id}` })
+            : t({ en: 'record', zh: '记录' })}
         </header>
         <div className="panel-body">
           {selected ? (
@@ -135,8 +158,11 @@ export function RecordBrowser({ files, recordId, onSelect }: RecordBrowserProps)
           ) : (
             <p className="browser-hint muted">
               {records.length === 0
-                ? 'Nothing to inspect — see the notices above for what went wrong.'
-                : 'Select a record to open it.'}
+                ? t({
+                    en: 'Nothing to inspect — see the notices above for what went wrong.',
+                    zh: '没有可查看的内容，具体原因见上方的提示。',
+                  })
+                : t({ en: 'Select a record to open it.', zh: '选一条记录打开。' })}
             </p>
           )}
         </div>

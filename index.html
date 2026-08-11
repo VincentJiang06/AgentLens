@@ -7,24 +7,39 @@
     <meta name="color-scheme" content="light dark" />
 
     <title>AgentLens — a local-first viewer for LLM &amp; agent research artifacts</title>
+    <!--
+      The interface is bilingual and switches at runtime; these tags cannot. They
+      are read by crawlers and by whoever pastes the link into a chat, and the
+      readers this is built for are split between English and Chinese, so both
+      languages are in the tag rather than one guessing for the other. The privacy
+      promise is spelled out in each, not translated once and abbreviated after.
+
+      `lang` here is only what the document has before the module runs; the first
+      thing `shell/lang.ts` does is set it to the resolved language.
+    -->
     <meta
       name="description"
-      content="Read evaluation logs, agent traces, memory stores and router decisions right where they are. AgentLens is a static site with no backend: all data stays in your browser — nothing is uploaded."
+      content="Read evaluation logs, agent traces, memory stores and router decisions right where they are. AgentLens is a static site with no backend: all data stays in your browser — nothing is uploaded. · 直接查看评测日志、智能体轨迹、记忆库与路由决策。AgentLens 是一个没有后端的静态站点：数据全部留在你的浏览器里，不会上传。"
     />
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content="AgentLens — a local-first viewer for LLM &amp; agent research artifacts" />
     <meta
       property="og:description"
-      content="Drop in your eval logs or agent traces. All data stays in your browser — nothing is uploaded."
+      content="Drop in your eval logs or agent traces. All data stays in your browser — nothing is uploaded. · 把评测日志或智能体轨迹拖进来。数据全部留在你的浏览器里，不会上传。"
     />
     <meta name="twitter:card" content="summary" />
   </head>
   <body>
     <div id="root"></div>
     <noscript>
-      AgentLens reads your files in the browser and needs JavaScript to run. It has no
-      backend: all data stays in your browser — nothing is uploaded.
+      <p lang="en">
+        AgentLens reads your files in the browser and needs JavaScript to run. It has no
+        backend: all data stays in your browser — nothing is uploaded.
+      </p>
+      <p lang="zh-Hans">
+        AgentLens 在浏览器里读取你的文件，需要 JavaScript 才能运行。它没有后端：数据全部留在你的浏览器里，不会上传。
+      </p>
     </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>

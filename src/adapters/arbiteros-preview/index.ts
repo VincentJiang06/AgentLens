@@ -36,7 +36,10 @@ export const arbiterosPreviewAdapter: Adapter<ArbiterosPreviewModel> = {
   demos: [
     {
       id: 'arbiteros-preview',
-      label: 'ArbiterOS red-team sample',
+      // Not a sample: `cases.json` is every one of the 105 case files under
+      // `ArbiterOS-Kernel/redteam/case/`, and calling the whole suite a sample
+      // understates what the card opens. The count is the package's own.
+      label: 'ArbiterOS red-team cases · all 105',
       path: 'demo-data/arbiteros-preview/cases.json',
       credit: {
         text: '105 red-team cases from cure-lab/ArbiterOS, Apache-2.0, unmodified',

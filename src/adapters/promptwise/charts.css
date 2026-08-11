@@ -1,0 +1,514 @@
+/* Curves and Pareto, the two PromptWise chart views.
+
+   No charting library: these are eight polylines and eight dots, and a library
+   would buy a canvas that no screen reader can read plus a dependency the
+   bundle has to carry. Everything below is either a token from index.css or a
+   series colour defined here, so both themes and the contrast measurements
+   documented in index.css hold without a second palette. */
+
+/* ------------------------------------------------------------ series colours
+
+   Eight learners need eight lines that stay apart on a projector, in either
+   theme, and for a reader who cannot separate blue from purple. Colour does
+   half of that; `--pw-dash-*` in the components does the other half, so every
+   line is also a distinct dash pattern and the figure survives a greyscale
+   print.
+
+   Measured against the surfaces a chart is drawn on — WCAG's 3:1 minimum for
+   non-text graphics is the bar, and the worst of these clears 4.2:1:
+     light on --bg-raised #fff:   4.63 5.01 5.08 6.69 5.36 7.26 6.51 7.18
+     light on --bg-sunken #f4f6f8: 4.28 4.62 4.69 6.17 4.95 6.70 6.01 6.63
+     dark  on --bg-raised #161a20: 7.09 7.34 7.72 7.33 8.48 7.65 6.82 9.73
+   The three blocks repeat by design, exactly as index.css does it: the media
+   query is the pre-JS default and the [data-theme] block is the explicit
+   choice, and the `:not()` is what lets a reader keep light mode on a dark OS. */
+
+:root {
+  --pw-series-1: #1f6feb;
+  --pw-series-2: #b8500f;
+  --pw-series-3: #1a7f37;
+  --pw-series-4: #a01c9c;
+  --pw-series-5: #0e7490;
+  --pw-series-6: #a4262c;
+  --pw-series-7: #6f42c1;
+  --pw-series-8: #5c5a10;
+
+  /* The oracle is a ceiling, not a ninth competitor, so it is deliberately not
+     a series colour: it is the text colour, dashed. */
+  --pw-oracle: var(--text);
+  --pw-axis: var(--border-strong);
+  --pw-gridline: var(--border);
+  --pw-guide: var(--border);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --pw-series-1: #6ba6ff;
+    --pw-series-2: #f0913f;
+    --pw-series-3: #52c26a;
+    --pw-series-4: #f07fe0;
+    --pw-series-5: #40c5d8;
+    --pw-series-6: #ff8a80;
+    --pw-series-7: #b98bff;
+    --pw-series-8: #cfc45a;
+  }
+}
+
+:root[data-theme='dark'] {
+  --pw-series-1: #6ba6ff;
+  --pw-series-2: #f0913f;
+  --pw-series-3: #52c26a;
+  --pw-series-4: #f07fe0;
+  --pw-series-5: #40c5d8;
+  --pw-series-6: #ff8a80;
+  --pw-series-7: #b98bff;
+  --pw-series-8: #cfc45a;
+}
+
+/* ------------------------------------------------------------------- shell */
+
+.pw-view {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bg-sunken);
+}
+
+.pw-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--sp-4);
+}
+
+.pw-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.pw-lede {
+  max-width: 78ch;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+}
+
+/* Denominators. Every one of these is the scale some number on this page is
+   over, so they sit above the charts rather than in a tooltip. */
+.pw-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pw-fact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  padding: 1px 8px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.pw-fact-value {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+/* ------------------------------------------------------------- provenance
+
+   Deliberately loud, deliberately first. These curves are over invented data,
+   and a chart that says so underneath is a chart that gets screenshotted
+   without the sentence. The text is the package's own, verbatim. */
+
+.pw-prov {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  background: var(--warn-soft);
+  border: 1px solid var(--warn);
+  border-left-width: 3px;
+  border-radius: var(--radius);
+}
+
+.pw-prov-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--warn);
+}
+
+.pw-prov-text {
+  max-width: 90ch;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  color: var(--text);
+}
+
+.pw-prov-text + .pw-prov-text {
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------- legend */
+
+.pw-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.pw-legend-item {
+  gap: var(--sp-2);
+  padding: 3px 8px;
+  font-size: var(--fs-sm);
+}
+
+/* A hidden line is off, not merely dimmed: the border goes dashed, the swatch
+   drops to the faint grey, and the name is struck through — three cues, none of
+   which is a hue, so the state survives being read in one colour. */
+.pw-legend-item[aria-pressed='false'] {
+  color: var(--text-faint);
+  background: transparent;
+  border-style: dashed;
+}
+
+.pw-legend-item[aria-pressed='false'] .pw-legend-name {
+  text-decoration: line-through;
+}
+
+.pw-legend-name {
+  font-family: var(--font-mono);
+}
+
+.pw-legend-swatch {
+  flex: none;
+  width: 26px;
+  height: 10px;
+  overflow: visible;
+}
+
+.pw-legend-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+/* ----------------------------------------------------------- the figures */
+
+.pw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--sp-3);
+}
+
+.pw-figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* The caption is above the plot in both views. A figure that is going to be
+   screenshotted has to carry what it is over inside the crop, and the crop
+   people take starts at the title. */
+.pw-figcap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pw-figcap-title {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pw-figcap-line {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+}
+
+.pw-figcap-data {
+  max-width: 92ch;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text);
+}
+
+/* `height: auto` with a viewBox is what makes the rendered box exactly the
+   viewBox's aspect ratio — which is what lets the pointer handlers map a client
+   x back to a t with one multiply instead of a matrix inversion. */
+.pw-plot {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: pan-y;
+}
+
+.pw-plot-frame:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+.pw-axis-line {
+  stroke: var(--pw-axis);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.pw-gridline {
+  stroke: var(--pw-gridline);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.pw-tick-label {
+  fill: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.pw-axis-title {
+  fill: var(--text-muted);
+  font-size: 11px;
+}
+
+.pw-line {
+  fill: none;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.pw-oracle-line {
+  fill: none;
+  stroke: var(--pw-oracle);
+  stroke-width: 1.4;
+  stroke-dasharray: 7 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.pw-oracle-label {
+  fill: var(--text);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.pw-cursor-line {
+  stroke: var(--text-faint);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.pw-cursor-dot {
+  stroke: var(--bg-raised);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.pw-plot-empty {
+  fill: var(--text-faint);
+  font-size: 12px;
+}
+
+/* -------------------------------------------------------------- readout */
+
+.pw-readout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.pw-readout-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+
+.pw-readout-t {
+  font-family: var(--font-mono);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pw-readout-note {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+/* A table wider than its panel scrolls inside itself rather than pushing the
+   document sideways; the same rule the score dashboard uses. */
+.pw-wide {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.pw-wide:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.pw-table td,
+.pw-table th {
+  white-space: nowrap;
+}
+
+.pw-table td.num {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+.pw-table th.num {
+  text-align: right;
+}
+
+.pw-table .pw-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+}
+
+.pw-chip {
+  flex: none;
+  width: 18px;
+  height: 8px;
+  overflow: visible;
+}
+
+.pw-table tbody tr.is-highlit {
+  background: var(--bg-selected);
+}
+
+/* The oracle's row is not a learner's row: it has one number and three blanks,
+   and the blanks are the point. */
+.pw-table tbody tr.pw-oracle-row {
+  background: var(--bg-inset);
+}
+
+.pw-blank {
+  color: var(--text-faint);
+}
+
+/* --------------------------------------------------------------- notices */
+
+.pw-note {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+}
+
+.pw-empty {
+  padding: var(--sp-5);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- pareto */
+
+.pw-pareto-figure {
+  gap: var(--sp-3);
+}
+
+.pw-point {
+  stroke: var(--bg-raised);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.pw-point.is-highlit {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+.pw-point-label {
+  fill: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.pw-leader {
+  stroke: var(--text-faint);
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.pw-iso {
+  fill: none;
+  stroke: var(--pw-guide);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+  vector-effect: non-scaling-stroke;
+}
+
+.pw-iso-label {
+  fill: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.pw-better {
+  fill: var(--text-muted);
+  font-size: 10px;
+}
+
+.pw-watermark {
+  fill: var(--text-faint);
+  font-size: 10px;
+}
+
+.pw-detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-3);
+  min-height: 1.6em;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.pw-detail-name {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.pw-detail-pair {
+  color: var(--text-muted);
+}
+
+.pw-detail-pair b {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text);
+}

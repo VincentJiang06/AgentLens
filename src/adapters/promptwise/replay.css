@@ -1,0 +1,556 @@
+/* V3's layout. Every colour is a token from index.css; `.panel`, `.badge`,
+   `.notice`, `.list-row`, `.faint` and `.muted` are the shell's — an adapter
+   arranges shell primitives, it does not restyle them.
+
+   The one thing invented here is the bar pair: `beliefs.q` in --accent,
+   `beliefs.utility` in --info, on one shared 0 → 1 axis. Neither is ever the
+   only carrier of anything: both bars sit beside the file's own number, and
+   "chosen" and "max utility" are words in chips, not hues. */
+
+.rp {
+  display: grid;
+  grid-template-columns: minmax(300px, 32%) minmax(0, 1fr);
+  gap: var(--sp-3);
+  height: 100%;
+  min-height: 0;
+
+  /* 5 + 18 + 2 + 15 + 5 padding/lines/gap + the 1px rule = 46, which is the
+     ROW_HEIGHT the virtualiser estimates the scrollbar from. Both lines of a row
+     are clamped to one line so this stays true of every row. */
+  --rp-row-h: 46px;
+}
+
+/* The one state with nothing to arrange. */
+.rp-bare {
+  display: block;
+  padding: var(--sp-4);
+}
+
+/* -------------------------------------------------------------------- left */
+
+/* The chrome above the list is a disclosure, not decoration, so it is never the
+   part that gets squeezed out: the column scrolls instead, and the list keeps a
+   floor of 220px. `flex: 1 0 auto` — grow into the space, never shrink below
+   that floor — is what keeps rows on screen in a short window, which is the
+   failure mode that makes a virtual list look empty. */
+.rp-left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.rp-filters {
+  flex: none;
+  gap: var(--sp-1);
+}
+
+.rp-field {
+  display: flex;
+  min-width: 0;
+}
+
+.rp-field > select {
+  width: 100%;
+  min-width: 0;
+}
+
+.rp-counts {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* What the rows are a sample of, directly above them. Whole sentences, never
+   truncated: a disclosure that ellipsises is a disclosure that was not made. */
+.rp-sampling {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+
+/* The package's own words. `<q>` takes its quotation marks from the document
+   language, which the shell keeps in step with the interface language. */
+.rp-quote {
+  color: var(--text);
+}
+
+.rp-legend {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-xs);
+}
+
+/* The three outcome words in the legend are the run's own tokens, so they are
+   set in the same face the rows set them in. */
+.rp-legend > span:not(.rp-legend-hint) {
+  font-family: var(--font-mono);
+}
+
+/* `flex-shrink: 1` is load-bearing, not a default left in place. `VirtualList`
+   is `height: 100%`, so it only becomes a scroll container when this box has a
+   height to resolve against — and a flex item that may not shrink has no height
+   but its content's, which for a virtual list is the whole canvas. With
+   `flex: 1 0 auto` the list grew to 6,164px, `.rp-left` scrolled instead of the
+   list, and the virtualiser — whose scroll element could no longer scroll — kept
+   rendering the window a deep link had jumped to, thousands of pixels below the
+   rows anyone could see. The floor stays a floor: `min-height` is what stops the
+   shrink, and the column above scrolls once there is no room left for it. */
+.rp-list {
+  flex: 1 1 auto;
+  min-height: 220px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+}
+
+/* --------------------------------------------------------------------- row */
+
+/* A row is a button so the list is operable from the keyboard; most of what
+   follows undoes the shell's button chrome rather than restyling `.list-row`. */
+.rp-row {
+  display: grid;
+  /* rail | text. The rail is flush left, so the outcome column reads as one
+     continuous stripe rather than a row of dots. */
+  grid-template-columns: 3px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0 var(--sp-2);
+  width: 100%;
+  height: var(--rp-row-h);
+  padding: 5px var(--sp-3) 5px 0;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  text-align: left;
+}
+
+.rp-row[aria-current='true'] {
+  background: var(--bg-selected);
+}
+
+/* Never the only signal: every row also carries its outcome token as `sr-only`
+   text and again, in words, on its muted line. */
+.rp-rail {
+  align-self: stretch;
+  background: var(--border-strong);
+  border-radius: 0 2px 2px 0;
+}
+
+.rp-rail.ok {
+  background: var(--ok);
+}
+
+.rp-rail.warn {
+  background: var(--warn);
+}
+
+.rp-rail.bad {
+  background: var(--bad);
+}
+
+/* The legend's swatch is the same element as the row's, so what is named is
+   literally what is shown. */
+.rp-legend .rp-rail {
+  display: inline-block;
+  width: 3px;
+  height: 0.9em;
+  vertical-align: -1px;
+  border-radius: 2px;
+}
+
+.rp-row-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* The chain of calls. Primary type, because it is the only thing that tells one
+   step from the next while scanning: the arms, in order, with what each cost.
+   Clamped to one line — a chain of five that wrapped would make rows different
+   heights and the scrollbar a lie — so a long chain ellipsises at its tail, and
+   the detail pane restates it in full one click away. */
+.rp-chain {
+  font-size: var(--fs-base);
+  line-height: 18px;
+  color: var(--text);
+}
+
+.rp-link {
+  white-space: nowrap;
+}
+
+.rp-arm {
+  font-family: var(--font-mono);
+}
+
+.rp-cost {
+  margin-left: 4px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+/* `→` and `↗` differ in shape before they differ in colour: the glyph is the
+   carrier, and each one also has a word behind it for a screen reader. */
+.rp-arrow {
+  margin: 0 5px;
+  color: var(--text-faint);
+}
+
+.rp-arrow.is-dearer {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.rp-mark {
+  margin-left: 4px;
+  font-weight: 600;
+}
+
+.rp-mark.ok {
+  color: var(--ok);
+}
+
+.rp-mark.bad {
+  color: var(--bad);
+}
+
+.rp-row-meta {
+  font-size: var(--fs-xs);
+  line-height: 15px;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------- right */
+
+.rp-main {
+  min-width: 0;
+}
+
+.rp-blank {
+  padding: var(--sp-5);
+}
+
+.rp-head {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border);
+}
+
+/* The outcome token and the `escalated` flag are the run's own words, set apart
+   from the sentences around them by face rather than by translation. */
+.rp-head .badge {
+  font-family: var(--font-mono);
+}
+
+.rp-head-line {
+  font-size: var(--fs-md);
+}
+
+.rp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+}
+
+.rp-id code {
+  background: none;
+  padding: 0;
+}
+
+.rp-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+}
+
+.rp-rounds {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rp-round {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.rp-round-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-sm);
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border);
+}
+
+.rp-round-n {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
+.rp-arm-lead {
+  font-weight: 600;
+}
+
+/* The absence, said in words. This is where five empty bar pairs would have
+   gone, and the sentence is the whole reason they are not drawn. */
+.rp-noBeliefs {
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+}
+
+/* -------------------------------------------------------------------- bars */
+
+.rp-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.rp-bars-head,
+.rp-arm-row {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) minmax(0, 1.1fr) minmax(110px, 2fr) minmax(110px, 2fr);
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+.rp-bars-head {
+  padding-bottom: 2px;
+  font-size: var(--fs-xs);
+  border-bottom: 1px solid var(--border);
+}
+
+.rp-col {
+  font-family: var(--font-mono);
+}
+
+.rp-arm-row {
+  padding: 3px var(--sp-1);
+  border-radius: var(--radius-sm);
+}
+
+/* The chosen arm and the argmax are marked twice over: a chip that says which,
+   in words, and this tint. The tint alone would leave the two indistinguishable
+   to a reader who cannot separate the hues — the chips are the real marking. */
+.rp-arm-row[data-chosen] {
+  background: var(--accent-soft);
+}
+
+.rp-arm-row[data-max] {
+  box-shadow: inset 2px 0 0 var(--info);
+}
+
+.rp-arm-name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  min-width: 0;
+  font-size: var(--fs-sm);
+}
+
+.rp-arm-cost {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.rp-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.rp-mark-chip {
+  padding: 0 5px;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.rp-mark-chip.is-chosen {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+}
+
+.rp-mark-chip.is-max {
+  color: var(--info);
+  background: var(--info-soft);
+  border: 1px solid var(--info);
+}
+
+.rp-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.rp-bar-track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 24px;
+  height: 8px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.rp-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.rp-bar[data-tone='utility'] .rp-bar-fill {
+  background: var(--info);
+}
+
+/* An arm whose recorded utility is not what `1 - cost_para * cost / q`
+   recomputes to. The dashes are a repeat of the sentence under the bars, which
+   names every such arm and prints what the recomputation gave. */
+.rp-bar[data-unmatched] .rp-bar-track {
+  border-color: var(--warn);
+  border-style: dashed;
+}
+
+/* The file's own number, at a fixed width so the column of them stays a column. */
+.rp-num {
+  flex: none;
+  width: 8ch;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-align: right;
+  color: var(--text-muted);
+}
+
+/* Present on every bar for a screen reader and for a narrow pane; the header
+   row carries the same two words when there is room for columns. */
+.rp-bar-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.rp-formula,
+.rp-substitution,
+.rp-check,
+.rp-offaxis {
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  overflow-wrap: anywhere;
+}
+
+.rp-formula {
+  margin-top: var(--sp-2);
+}
+
+/* The substitution is the point of the panel — the rule with this round's own
+   numbers in it — so it is set as code and never clipped. */
+.rp-substitution code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Whether the arm called was the maximum. Body type, not a caption: it is the
+   sentence the reader came for. */
+.rp-verdict {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+}
+
+/* -------------------------------------------------------------- responsive */
+
+/* Below the width where four columns of bars stop being readable, a bar row
+   becomes four stacked lines and each bar shows the field name it is of. */
+@media (max-width: 760px) {
+  .rp-bars-head {
+    display: none;
+  }
+
+  .rp-arm-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+    padding-block: var(--sp-1);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .rp-bar-label {
+    position: static;
+    flex: none;
+    width: 9ch;
+    height: auto;
+    clip-path: none;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-faint);
+  }
+}
+
+/* One column below the width where a list beside a detail leaves neither room.
+   The list keeps a fixed slice of the screen so the detail cannot push it off,
+   and its 220px floor above still applies inside that slice. */
+@media (max-width: 900px) {
+  .rp {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(240px, 42%) minmax(0, 1fr);
+  }
+}
+
+/* On a phone the three controls above the list are wider than the pane. They
+   pair up; the legend keeps its three colour words and drops only the line that
+   says how to read a row, which the rows make obvious after one glance. */
+@media (max-width: 640px) {
+  .rp-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .rp-legend-hint {
+    display: none;
+  }
+}

@@ -1,11 +1,30 @@
 import { useMemo, useState } from 'react'
+import { useT } from './lang'
+import type { Str } from './lang'
 import './shell.css'
 
 /**
  * The fallback view: whatever no adapter claimed still gets rendered here.
  * Nothing in this file may throw, and nothing renders a subtree the reader has
  * not opened — both are what keep a 22 MB file from taking the page down.
+ *
+ * This tree redacts nothing, deliberately. Dropping a released score file here
+ * prints the internal checkpoint name in `model`, and that is correct: it is the
+ * reader's own file, read in their own tab, and hiding a field from the person
+ * who supplied it would make the raw view a liar about the data it claims to
+ * show. What AgentLens promises is narrower and lives elsewhere — the demo
+ * packages it *ships* drop that field, and no such name appears on the published
+ * site. `App.tsx`'s RawScopeNote states that boundary on screen.
+ *
+ * Nothing the file itself carries is translated: keys, values, and the `Array(3)`
+ * / `Map(3)` notation that names a value's type all render as they are. The only
+ * words this file writes are the controls and flags around them.
  */
+
+/** A value's own notation, which reads the same in both languages. */
+function notation(text: string): Str {
+  return { en: text, zh: text }
+}
 
 /** Children beyond this are grouped into collapsed index buckets, DevTools-style. */
 const BUCKET_SIZE = 100
@@ -19,8 +38,10 @@ interface Entry {
   key: string
   value: unknown
   /** Set when reading the value failed, e.g. a getter threw. */
-  problem?: string
+  problem?: Str
 }
+
+const UNREADABLE: Str = { en: 'unreadable', zh: '无法读取' }
 
 /** Object-typed values that read better as a single line than as a subtree. */
 function isLeafObject(value: object): boolean {
@@ -41,12 +62,12 @@ function childCount(value: object): number {
   }
 }
 
-function summarize(value: object): string {
+function summarize(value: object): Str {
   const n = childCount(value)
-  if (Array.isArray(value)) return `Array(${n})`
-  if (value instanceof Map) return `Map(${n})`
-  if (value instanceof Set) return `Set(${n})`
-  return n === 1 ? '{ 1 key }' : `{ ${n} keys }`
+  if (Array.isArray(value)) return notation(`Array(${n})`)
+  if (value instanceof Map) return notation(`Map(${n})`)
+  if (value instanceof Set) return notation(`Set(${n})`)
+  return { en: n === 1 ? '{ 1 key }' : `{ ${n} keys }`, zh: `{ ${n} 个键 }` }
 }
 
 function entriesOf(value: object): Entry[] {
@@ -70,12 +91,16 @@ function entriesOf(value: object): Entry[] {
     try {
       return { key, value: (value as Record<string, unknown>)[key] }
     } catch {
-      return { key, value: undefined, problem: 'unreadable' }
+      return { key, value: undefined, problem: UNREADABLE }
     }
   })
 }
 
-function describeLeaf(value: unknown): { text: string; cls: string } {
+/**
+ * `text` is the value as JavaScript prints it, so it is never translated. `word`
+ * is set only when there is no value to print and the placeholder is ours.
+ */
+function describeLeaf(value: unknown): { text: string; cls: string; word?: Str } {
   if (value === null) return { text: 'null', cls: 'is-nil' }
   if (value === undefined) return { text: 'undefined', cls: 'is-nil' }
   switch (typeof value) {
@@ -100,7 +125,11 @@ function describeLeaf(value: unknown): { text: string; cls: string } {
     if (value instanceof Error) return { text: `${value.name}: ${value.message}`, cls: 'is-other' }
     return { text: String(value), cls: 'is-other' }
   } catch {
-    return { text: '(unreadable)', cls: 'is-other' }
+    return {
+      text: '(unreadable)',
+      cls: 'is-other',
+      word: { en: '(unreadable)', zh: '（无法读取）' },
+    }
   }
 }
 
@@ -115,6 +144,7 @@ function bucketStride(count: number): number {
 }
 
 function StringLeaf({ text }: { text: string }) {
+  const t = useT()
   const [expanded, setExpanded] = useState(false)
   const long = text.length > STRING_CLAMP
   const shown = expanded ? text.slice(0, STRING_MAX) : text.slice(0, STRING_CLAMP)
@@ -129,20 +159,31 @@ function StringLeaf({ text }: { text: string }) {
           className="tree-more"
           onClick={() => setExpanded((v) => !v)}
         >
-          {expanded ? 'collapse' : `show all ${text.length} chars`}
+          {expanded
+            ? t({ en: 'collapse', zh: '收起' })
+            : t({
+                en: `show all ${text.length.toLocaleString()} chars`,
+                zh: `展开全部 ${text.length.toLocaleString()} 字符`,
+              })}
         </button>
       )}
       {expanded && text.length > STRING_MAX && (
-        <span className="tree-flag">cut at {STRING_MAX} chars</span>
+        <span className="tree-flag">
+          {t({
+            en: `cut at ${STRING_MAX.toLocaleString()} chars`,
+            zh: `已在 ${STRING_MAX.toLocaleString()} 字符处截断`,
+          })}
+        </span>
       )}
     </span>
   )
 }
 
 function ValueLeaf({ value }: { value: unknown }) {
+  const t = useT()
   if (typeof value === 'string') return <StringLeaf text={value} />
-  const { text, cls } = describeLeaf(value)
-  return <span className={`tree-val ${cls}`}>{text}</span>
+  const { text, cls, word } = describeLeaf(value)
+  return <span className={`tree-val ${cls}`}>{word ? t(word) : text}</span>
 }
 
 interface NodeProps {
@@ -152,10 +193,11 @@ interface NodeProps {
   /** Nodes shallower than this start open. */
   expandTo: number
   ancestors: readonly object[]
-  problem?: string
+  problem?: Str
 }
 
 function TreeNode({ label, value, depth, expandTo, ancestors, problem }: NodeProps) {
+  const t = useT()
   const [open, setOpen] = useState(depth < expandTo)
   const branch = isBranch(value)
 
@@ -166,7 +208,7 @@ function TreeNode({ label, value, depth, expandTo, ancestors, problem }: NodePro
           <span className="tree-bullet" aria-hidden="true" />
           <span className="tree-key">{label}</span>
           <ValueLeaf value={value} />
-          {problem && <span className="tree-flag">{problem}</span>}
+          {problem && <span className="tree-flag">{t(problem)}</span>}
         </span>
       </li>
     )
@@ -185,15 +227,18 @@ function TreeNode({ label, value, depth, expandTo, ancestors, problem }: NodePro
           <button
             type="button"
             className="tree-toggle"
-            aria-label={`${open ? 'Collapse' : 'Expand'} ${label}`}
+            aria-label={t({
+              en: `${open ? 'Collapse' : 'Expand'} ${label}`,
+              zh: `${open ? '收起' : '展开'} ${label}`,
+            })}
             onClick={() => setOpen((v) => !v)}
           >
             {open ? '▾' : '▸'}
           </button>
         )}
         <span className="tree-key">{label}</span>
-        <span className="tree-summary">{summarize(value)}</span>
-        {circular && <span className="tree-flag">circular</span>}
+        <span className="tree-summary">{t(summarize(value))}</span>
+        {circular && <span className="tree-flag">{t({ en: 'circular', zh: '循环引用' })}</span>}
       </span>
       {open && !leafish && (
         <Children value={value} depth={depth} expandTo={expandTo} ancestors={ancestors} />
@@ -274,6 +319,7 @@ function Bucket({
   expandTo,
   ancestors,
 }: EntryListProps & { from: number; to: number }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const slice = useMemo(() => entries.slice(from, to), [entries, from, to])
 
@@ -283,7 +329,10 @@ function Bucket({
         <button
           type="button"
           className="tree-toggle"
-          aria-label={`${open ? 'Collapse' : 'Expand'} items ${from} to ${to - 1}`}
+          aria-label={t({
+            en: `${open ? 'Collapse' : 'Expand'} items ${from} to ${to - 1}`,
+            zh: `${open ? '收起' : '展开'}第 ${from} 到 ${to - 1} 项`,
+          })}
           onClick={() => setOpen((v) => !v)}
         >
           {open ? '▾' : '▸'}

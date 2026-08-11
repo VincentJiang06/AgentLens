@@ -1,5 +1,7 @@
 import { useCallback, useId, useRef, useState } from 'react'
 import type { ChangeEvent, DragEvent, ReactNode } from 'react'
+import { useT } from './lang'
+import type { Str } from './lang'
 import './shell.css'
 
 /** Symlink loops are not expressible through the entries API, but a malformed tree still can be. */
@@ -61,12 +63,14 @@ function sortByPath(files: File[]): File[] {
   )
 }
 
+const DEFAULT_HEADING: Str = { en: 'Drop logs here', zh: '把日志拖到这里' }
+
 export interface DropZoneProps {
   /** Receives every file found, ordered by path. Nothing is filtered — the parser decides. */
   onFiles: (files: File[]) => void
   /** Blocks input while the shell is parsing. */
   busy?: boolean
-  heading?: string
+  heading?: Str
   /** Small print under the buttons: parse counts, skipped lines, errors. */
   hint?: ReactNode
   className?: string
@@ -75,12 +79,15 @@ export interface DropZoneProps {
 export function DropZone({
   onFiles,
   busy = false,
-  heading = 'Drop logs here',
+  heading = DEFAULT_HEADING,
   hint,
   className,
 }: DropZoneProps) {
+  const t = useT()
   const [over, setOver] = useState(false)
-  const [note, setNote] = useState<string | null>(null)
+  // Held as a `Str` rather than a rendered string so a language switch while the
+  // note is on screen re-renders it in the new language.
+  const [note, setNote] = useState<Str | null>(null)
   const headingId = useId()
   const dragDepth = useRef(0)
   const filePicker = useRef<HTMLInputElement>(null)
@@ -89,7 +96,7 @@ export function DropZone({
   const deliver = useCallback(
     (files: File[]) => {
       if (files.length === 0) {
-        setNote('No files in that drop.')
+        setNote({ en: 'No files in that drop.', zh: '这次拖入里没有文件。' })
         return
       }
       setNote(null)
@@ -122,8 +129,10 @@ export function DropZone({
         return
       }
 
-      setNote('Reading dropped items…')
-      walkEntries(entries).then(deliver, () => setNote('Could not read that folder.'))
+      setNote({ en: 'Reading dropped items…', zh: '正在读取拖入的内容…' })
+      walkEntries(entries).then(deliver, () =>
+        setNote({ en: 'Could not read that folder.', zh: '这个文件夹读不了。' }),
+      )
     },
     [busy, deliver],
   )
@@ -163,11 +172,13 @@ export function DropZone({
       aria-labelledby={headingId}
     >
       <p className="dropzone-title" id={headingId}>
-        {heading}
+        {t(heading)}
       </p>
       <p className="dropzone-sub">
-        One file, several files, or a whole folder — JSON or JSONL. Everything is read in this
-        browser.
+        {t({
+          en: 'One file, several files, or a whole folder — JSON or JSONL. Everything is read in this browser.',
+          zh: '一个文件、多个文件，或者整个文件夹，JSON 或 JSONL。所有内容都在这个浏览器里读取。',
+        })}
       </p>
 
       <div className="cluster">
@@ -177,17 +188,17 @@ export function DropZone({
           disabled={busy}
           onClick={() => filePicker.current?.click()}
         >
-          Choose files
+          {t({ en: 'Choose files', zh: '选择文件' })}
         </button>
         <button type="button" disabled={busy} onClick={() => folderPicker.current?.click()}>
-          Choose folder
+          {t({ en: 'Choose folder', zh: '选择文件夹' })}
         </button>
       </div>
 
       {/* Rendered even when empty: a live region has to be in the DOM before the
           message arrives, or the announcement is lost. CSS reserves its height. */}
       <p className="dropzone-note" role="status">
-        {note ?? hint}
+        {note ? t(note) : hint}
       </p>
 
       {/* .sr-only hides these from sight but leaves them tabbable, which put two

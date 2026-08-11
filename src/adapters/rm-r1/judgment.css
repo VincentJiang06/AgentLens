@@ -1,0 +1,497 @@
+/* V1's layout. Every colour is a token from index.css; the only thing invented
+   here is the mapping of the judge's two positions onto two of those tokens.
+   `.list-row`, `.panel`, `.badge` and `.notice` are the shell's — an adapter
+   arranges shell primitives, it does not restyle them. */
+
+.jb {
+  display: grid;
+  grid-template-columns: minmax(280px, 27%) minmax(0, 1fr);
+  gap: var(--sp-3);
+  height: 100%;
+  min-height: 0;
+
+  /* Position A and position B. Two hues that survive both themes and are never
+     the only carrier of the distinction — every A/B element also shows the
+     letter. */
+  --slot-a: var(--accent);
+  --slot-a-soft: var(--accent-soft);
+  --slot-b: var(--info);
+  --slot-b-soft: var(--info-soft);
+}
+
+[data-slot='A'],
+[data-side='A'] {
+  --slot: var(--slot-a);
+  --slot-soft: var(--slot-a-soft);
+}
+
+[data-slot='B'],
+[data-side='B'] {
+  --slot: var(--slot-b);
+  --slot-soft: var(--slot-b-soft);
+}
+
+/* ------------------------------------------------------------------- left */
+
+.jb-left {
+  gap: var(--sp-2);
+}
+
+.jb-filters {
+  flex: none;
+  gap: var(--sp-1);
+}
+
+.jb-field {
+  display: flex;
+  min-width: 0;
+}
+
+.jb-field > select,
+.jb-field > input {
+  width: 100%;
+  min-width: 0;
+}
+
+.jb-search {
+  flex: 1 1 100%;
+}
+
+.jb-counts {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* What the count above is a count of. Whole sentence, never truncated: it is the
+   part that says the percentage is this list's and not the benchmark's, and a
+   qualifier that ellipsises is a qualifier that was not made. */
+.jb-scope {
+  flex: none;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  overflow-wrap: anywhere;
+}
+
+.jb-legend {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-xs);
+}
+
+/* The virtualizer owns the scrollbar, so this pane is bounded and never grows
+   with the record count. */
+.jb-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+}
+
+/* A row is a button so the list is operable from the keyboard; everything below
+   is undoing the shell's button chrome, not restyling `.list-row`.
+
+   Two lines, both clamped to one line each, in a fixed height. Uniform rows are
+   what let the eye run down 2,985 of them, and they are the only reason the
+   JS-side ROW_HEIGHT can be an honest scrollbar estimate — so the height is
+   stated here once and the two lines are sized to add up to it exactly:
+   5 + 18 + 2 + 15 + 5 + 1px rule = 46px. */
+.jb {
+  --jb-row-h: 46px;
+}
+
+.jb-row {
+  display: grid;
+  /* rail | text. The rail is flush to the row's left edge, so the outcome
+     column reads as one continuous stripe rather than a row of dots. */
+  grid-template-columns: 3px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0 var(--sp-2);
+  width: 100%;
+  height: var(--jb-row-h);
+  padding: 5px var(--sp-3) 5px 0;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  text-align: left;
+}
+
+.jb-row[aria-current='true'] {
+  background: var(--bg-selected);
+}
+
+/* Never the only signal: the row also carries the outcome as `sr-only` text, and
+   the legend above the list names both colours. Spans both lines so the scan
+   down the column costs the question none of its width. */
+.jb-rail {
+  align-self: stretch;
+  background: var(--border-strong);
+  border-radius: 0 2px 2px 0;
+}
+
+.jb-rail.ok {
+  background: var(--ok);
+}
+
+.jb-rail.bad {
+  background: var(--bad);
+}
+
+/* The legend's swatch is the same element as the row's, so what is named is
+   literally what is shown. */
+.jb-legend .jb-rail {
+  display: inline-block;
+  width: 3px;
+  height: 0.9em;
+  vertical-align: -1px;
+  border-radius: 2px;
+}
+
+.jb-row-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* The question. Primary type, because it is the only thing that distinguishes
+   one judgement from the next. */
+.jb-row-q {
+  font-size: var(--fs-base);
+  line-height: 18px;
+  color: var(--text);
+}
+
+.jb-row-meta {
+  font-size: var(--fs-xs);
+  line-height: 15px;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------- right */
+
+.jb-main {
+  min-width: 0;
+}
+
+.jb-blank {
+  padding: var(--sp-5);
+}
+
+.jb-head {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border);
+}
+
+.jb-verdict {
+  font-size: var(--fs-md);
+}
+
+.jb-slots {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.jb-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+}
+
+.jb-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  padding: var(--sp-4);
+}
+
+.jb-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.jb-block-title {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.jb-block-title .faint {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* -------------------------------------------------------------- responses */
+
+.jb-panes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+}
+
+.jb-resp {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--slot);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.jb-resp-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-sm);
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Long answers must not push the judgement off the screen; the pane scrolls
+   inside itself so the two sides stay level with each other. */
+.jb-resp-body {
+  min-height: 0;
+  max-height: 44vh;
+  overflow: auto;
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.jb-msg + .jb-msg {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px dashed var(--border);
+}
+
+.jb-msg-role {
+  display: block;
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.jb-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--slot);
+  background: var(--slot-soft);
+  border: 1px solid var(--slot);
+  border-radius: var(--radius-sm);
+}
+
+/* -------------------------------------------------------------- judgement */
+
+.jb-criteria {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jb-criterion {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-1) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The bar is drawn under the number rather than beside it: a criterion with no
+   stated weight then differs by an absence, not by a bar of length zero. */
+.jb-weight {
+  position: relative;
+  flex: none;
+  width: 5ch;
+  padding-bottom: 3px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.jb-weight-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+.jb-criterion-text {
+  min-width: 0;
+}
+
+.jb-details {
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.jb-details > summary {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.jb-details[open] > summary {
+  margin-bottom: var(--sp-2);
+}
+
+.jb-eval,
+.jb-unplaced {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  align-items: flex-start;
+  font-size: var(--fs-base);
+  line-height: var(--lh-loose);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.jb-unplaced {
+  padding-top: var(--sp-2);
+  border-top: 1px dashed var(--border);
+}
+
+.jb-span {
+  display: block;
+  padding: var(--sp-1) var(--sp-2);
+  color: var(--text);
+  background: var(--slot-soft);
+  border-left: 3px solid var(--slot);
+  border-radius: var(--radius-sm);
+}
+
+.jb-span-kind {
+  margin: 0 var(--sp-2) 0 var(--sp-1);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* The hover tie, both ways: point at a span and its side lights up, point at a
+   side and its spans do. Done in CSS rather than React state so that moving the
+   pointer across a 5 KB evaluation re-renders nothing. Where `:has()` is
+   unavailable this degrades to no highlight — the letter chips still say which
+   side each span belongs to. */
+.jb-main:has(.jb-span[data-side='A']:hover) .jb-resp[data-slot='A'],
+.jb-main:has(.jb-span[data-side='B']:hover) .jb-resp[data-slot='B'] {
+  border-color: var(--slot);
+  box-shadow: 0 0 0 2px var(--slot-soft);
+}
+
+.jb-main:has(.jb-resp[data-slot='A']:hover) .jb-span[data-side='A'],
+.jb-main:has(.jb-resp[data-slot='B']:hover) .jb-span[data-side='B'] {
+  outline: 1px solid var(--slot);
+}
+
+/* ------------------------------------------------------------------- text */
+
+/* Not a Markdown renderer: whitespace is preserved and fenced code is set
+   apart, and nothing else is interpreted. */
+.jb-rich {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.jb-para {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.jb-code {
+  max-height: 24em;
+}
+
+.jb-prompt,
+.jb-justify,
+.jb-solution {
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.jb-justify,
+.jb-solution {
+  background: var(--bg-sunken);
+}
+
+.jb-raw {
+  max-height: 28em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* On a phone the chrome above the list — five controls, the counts, what they
+   are counts of, the legend — is taller than the slice of the pane the list
+   gets, and the rows are what is squeezed out. The controls pair up into two
+   columns and the legend drops its how-to-read line; the colour key and the
+   sentence that scopes the percentage both stay, because those are the two the
+   numbers depend on. */
+@media (max-width: 640px) {
+  .jb-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .jb-search {
+    grid-column: 1 / -1;
+  }
+
+  .jb-legend-hint {
+    display: none;
+  }
+}
+
+/* One column below the width where two response panes stop being readable. The
+   list keeps a fixed slice of the screen so the detail is not pushed off it. */
+@media (max-width: 900px) {
+  .jb {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 40%) minmax(0, 1fr);
+  }
+
+  .jb-panes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .jb-resp-body {
+    max-height: 30vh;
+  }
+}

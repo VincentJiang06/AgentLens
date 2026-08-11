@@ -8,10 +8,49 @@
 }
 
 /* The privacy claim is the product's main promise, so it stays in the top bar at
-   every width — truncated on a phone rather than hidden. */
+   every width. On a phone the full sentence truncates to "All data stays in y…",
+   which promises nothing, so the short form takes over instead — same claim, the
+   half that matters. Both are in the DOM; only one is drawn. */
 .privacy {
   font-size: var(--fs-sm);
   color: var(--text-muted);
+}
+
+.privacy-short {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .privacy-full {
+    display: none;
+  }
+
+  .privacy-short {
+    display: inline;
+  }
+}
+
+/* index.css already guarantees the promise is never cut — it wraps and the bar
+   grows rather than ellipsising. This is the other half: on a 320px screen the
+   bar's own padding and gaps take 76px before any text is drawn, which is what
+   forces the wrap in the first place. Giving 36px of that back is 36px the
+   promise does not have to wrap into, so the bar stays one row further down than
+   it otherwise would; the wrap remains the guarantee behind it. Nothing else
+   moves: the two icon buttons are fixed width and the brand does not wrap. */
+@media (max-width: 420px) {
+  .topbar {
+    gap: var(--sp-2);
+    padding: 0 var(--sp-2);
+  }
+}
+
+/* Labelled with the language it switches to, so the label is the affordance and
+   needs no translating. --fs-sm keeps the CJK pair legible and measures the same
+   28.4px box as the theme toggle beside it. */
+.lang-toggle {
+  padding: 6px 8px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
 }
 
 /* ----------------------------------------------------------------- landing */
@@ -56,9 +95,12 @@
 
 /* ----------------------------------------------------------------- dataset */
 
+/* A column, not a row template: the head, the credit and the notice block each
+   appear or not depending on the dataset, and a fixed `auto auto 1fr` hands the
+   1fr to whichever child happens to land third. Only the body may grow. */
 .dataset {
-  display: grid;
-  grid-template-rows: auto auto 1fr;
+  display: flex;
+  flex-direction: column;
   gap: var(--sp-2);
   height: 100%;
   min-height: 0;
@@ -66,6 +108,7 @@
 }
 
 .dataset-head {
+  flex: none;
   gap: var(--sp-2);
   min-width: 0;
 }
@@ -73,6 +116,7 @@
 /* Every demo package republishes some group's own output, so the credit sits with
    the data itself rather than in a README nobody opens on the way to the demo. */
 .dataset-credit {
+  flex: none;
   margin: 0;
   padding: var(--sp-1) var(--sp-3) 0;
   color: var(--text-muted);
@@ -89,6 +133,7 @@
 }
 
 .dataset-notices {
+  flex: none;
   gap: var(--sp-2);
 }
 
@@ -97,14 +142,22 @@
 }
 
 .dataset-body {
+  flex: 1 1 0;
   min-height: 0;
 }
 
+/* Crash notice, scope note, then the records: the records take what is left,
+   however many notices sit above them. */
 .dataset-fallback {
-  display: grid;
-  grid-template-rows: auto 1fr;
+  display: flex;
+  flex-direction: column;
   gap: var(--sp-2);
   height: 100%;
+  min-height: 0;
+}
+
+.dataset-fallback > :last-child {
+  flex: 1 1 0;
   min-height: 0;
 }
 

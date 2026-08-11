@@ -36,6 +36,30 @@ function kinds(outcome: ParseOutcome): string[] {
   return outcome.problems.map((p) => p.kind)
 }
 
+/**
+ * A parse problem lands on the same notice stack as the shell's own words, so it
+ * carries both languages rather than a string. The type forces both fields to
+ * exist; these two check what the type cannot:
+ *
+ *   `bothQuote` — text that came out of the file survives into both sides
+ *                 unchanged, because translating a quotation misquotes it;
+ *   `bilingual` — neither side is empty, whatever path the parser took.
+ *
+ * That both sides are genuinely different where they should be is pinned one
+ * reason at a time, by the reason table's own test below.
+ */
+function bothQuote(outcome: ParseOutcome, index: number, quoted: RegExp): void {
+  assert.match(outcome.problems[index].excerpt.en, quoted)
+  assert.match(outcome.problems[index].excerpt.zh, quoted)
+}
+
+function bilingual(outcome: ParseOutcome): void {
+  for (const problem of outcome.problems) {
+    assert.ok(problem.excerpt.en.length > 0, 'a problem carried no English')
+    assert.ok(problem.excerpt.zh.length > 0, 'a problem carried no Chinese')
+  }
+}
+
 /** `{"i":0,"text":"row 0"}, …` — the shape of every log this project reads. */
 function rows(n: number): string[] {
   return Array.from({ length: n }, (_, i) => `{"i":${i},"text":"row ${i}"}`)
@@ -150,7 +174,8 @@ test('the real malformed RMB envelope yields its 2 records and says it was salva
   assert.equal(outcome.records.length, 2)
   assert.equal(outcome.salvaged, true)
   assert.equal(outcome.problems.length, 1)
-  assert.match(outcome.problems[0].excerpt, /trailing comma/)
+  assert.match(outcome.problems[0].excerpt.en, /trailing comma/)
+  assert.match(outcome.problems[0].excerpt.zh, /多了一个逗号/)
 })
 
 test('an envelope with a trailing comma after the array keeps every record', async () => {
@@ -160,14 +185,16 @@ test('an envelope with a trailing comma after the array keeps every record', asy
   assert.equal(outcome.records.length, 1000)
   assert.equal(outcome.salvaged, true)
   assert.deepEqual(kinds(outcome), ['malformed-json'])
-  assert.match(outcome.problems[0].excerpt, /trailing comma/)
+  assert.match(outcome.problems[0].excerpt.en, /trailing comma/)
+  assert.match(outcome.problems[0].excerpt.zh, /多了一个逗号/)
 })
 
 test('an envelope with a trailing comma INSIDE the array keeps every record', async () => {
   const outcome = await parseText(`{"0":[${rows(1000).join(',')},]}`)
   assert.equal(outcome.records.length, 1000)
   assert.equal(outcome.salvaged, true)
-  assert.match(outcome.problems[0].excerpt, /trailing comma/)
+  assert.match(outcome.problems[0].excerpt.en, /trailing comma/)
+  assert.match(outcome.problems[0].excerpt.zh, /多了一个逗号/)
 })
 
 test('one broken element inside a 20 MB envelope costs one record, not the file', async () => {
@@ -190,7 +217,8 @@ test('one broken element inside a 20 MB envelope costs one record, not the file'
   assert.equal(streamed, 59999)
   assert.equal(outcome.salvaged, true)
   assert.equal(outcome.problems.length, 1)
-  assert.match(outcome.problems[0].excerpt, /"i":30000/)
+  // The offending bytes are the file's, so they are quoted into both languages.
+  bothQuote(outcome, 0, /"i":30000/)
 })
 
 test('a truncated envelope still yields the elements that arrived', async () => {
@@ -286,7 +314,44 @@ test('a first line past the 1 MiB probe budget is read as one JSON document', as
   assert.equal(outcome.shape, 'json-object')
   assert.equal(outcome.records.length, 1)
   assert.equal(outcome.salvaged, true)
-  assert.match(outcome.problems[0].excerpt, /trailing content/)
+  assert.match(outcome.problems[0].excerpt.en, /trailing content/)
+  assert.match(outcome.problems[0].excerpt.zh, /多余的内容/)
+})
+
+/* --------------------------------------------------- reasons, in two languages */
+
+test('every reason the parser writes is written in both languages', async () => {
+  // One damaged document per branch of the reason table, so a reason that is
+  // added later with only an English side has nowhere to hide: the compiler
+  // rejects the literal, and this rejects a Chinese side pasted from the English.
+  const cases: [string, RegExp, RegExp][] = [
+    ['hello world', /not JSON or JSONL/, /既不是 JSON 也不是 JSONL/],
+    ['{"a":1,}', /trailing comma/, /多了一个逗号/],
+    ['[1,,2]', /empty element/, /空的元素/],
+    ['{1:2}', /expected a property name/, /应该是一个属性名/],
+    ['{"a" 1}', /expected ":"/, /应该是 ":"/],
+    ['{"a":}', /expected a value/, /应该是一个值/],
+    ['{"a":[}', /expected "\]"/, /应该是 "\]"/],
+    ['[{"a":1} {"b":2}]', /expected "," or a closing bracket/, /或者右括号/],
+    [String.raw`{"a\q":1,"b":2}`, /unreadable property name/, /读不出来的属性名/],
+    ['[{"a":1}] junk', /trailing content/, /多余的内容/],
+    ['[{"a":"unclosed]', /unterminated string/, /字符串没有收尾/],
+    ['[{"a":1', /file ended inside a value/, /中间就结束了/],
+    ['[{"a":1},', /file ended before "\]"/, /之前就结束了/],
+  ]
+
+  for (const [text, en, zh] of cases) {
+    const outcome = await parseText(text)
+    bilingual(outcome)
+    assert.ok(
+      outcome.problems.some((p) => en.test(p.excerpt.en)),
+      `no English match for ${en} in ${JSON.stringify(outcome.problems.map((p) => p.excerpt.en))}`,
+    )
+    assert.ok(
+      outcome.problems.some((p) => zh.test(p.excerpt.zh)),
+      `no Chinese match for ${zh} in ${JSON.stringify(outcome.problems.map((p) => p.excerpt.zh))}`,
+    )
+  }
 })
 
 /* ------------------------------------- the string-aware depth counter's killer */
@@ -393,7 +458,9 @@ test('a source error at byte 0 becomes a problem, not a rejection', async () => 
   )
   assert.equal(outcome.records.length, 0)
   assert.equal(outcome.salvaged, true)
-  assert.ok(outcome.problems.some((p) => p.excerpt.includes('disk read failed at byte 0')))
+  bilingual(outcome)
+  assert.ok(outcome.problems.some((p) => p.excerpt.en.includes('disk read failed at byte 0')))
+  assert.ok(outcome.problems.some((p) => p.excerpt.zh.includes('disk read failed at byte 0')))
 })
 
 test('a source error mid-file keeps the records already recovered', async () => {
@@ -415,7 +482,11 @@ test('a source error mid-file keeps the records already recovered', async () => 
     assert.equal(outcome.shape, 'json-array', `cutAfter ${cutAfter}`)
     assert.equal(outcome.salvaged, true, `cutAfter ${cutAfter}`)
     assert.ok(
-      outcome.problems.some((p) => p.excerpt.includes('NotReadableError')),
+      outcome.problems.some((p) => p.excerpt.en.includes('NotReadableError')),
+      `cutAfter ${cutAfter}`,
+    )
+    assert.ok(
+      outcome.problems.some((p) => p.excerpt.zh.includes('NotReadableError')),
       `cutAfter ${cutAfter}`,
     )
     assert.equal(outcome.records.length, cutAfter * 50, `cutAfter ${cutAfter}`)
@@ -448,6 +519,8 @@ test('random mutations of valid documents never throw out of parseStream', async
           : seed.slice(0, cut) + seed.slice(cut + 1)
     const outcome = await parseStream(chunked(mutated, 1 + next(5)))
     assert.ok(Array.isArray(outcome.records))
+    // Whatever the parser decided to say about this wreck, it said it twice.
+    bilingual(outcome)
     // The contract: partial recovery is never reported as a clean parse.
     // (Zero records plus a problem is a failed parse, not a salvaged one.)
     if (outcome.records.length > 0 && outcome.problems.length > 0) {

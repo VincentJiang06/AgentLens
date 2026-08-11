@@ -9,9 +9,18 @@
  * explaining what broke. Partial recovery is never reported as a clean parse.
  *
  * `parse.test.ts` drives this file directly under `node --test`.
+ *
+ * Every reason this file writes is a `Str`, because a parse problem is the one
+ * notice a reader gets when their own file is the thing that went wrong, and it
+ * sits at the top of the notice stack. The import is `import type`, so it is
+ * erased: this module still pulls in no React, no DOM and no module state, which
+ * is what lets the worker and `node --test` both run it. `Str` values are built
+ * here and resolved wherever they are drawn — nothing in this file may ask what
+ * language is on screen.
  */
 
 import type { ParseProblem, ParseShape, ParsedRecord } from '../types'
+import type { Str } from './lang'
 
 export interface ParseOutcome {
   shape: ParseShape
@@ -130,16 +139,57 @@ class Sink {
 /* ------------------------------------------------------- problem bookkeeping */
 
 interface Ctx {
-  problem(at: number, kind: ParseProblem['kind'], reason: string, snippet?: string): void
+  problem(at: number, kind: ParseProblem['kind'], reason: Str, snippet?: string): void
   salvage(): void
 }
 
+/**
+ * Text that arrived rather than text we wrote: the offending bytes, a property
+ * name, a `JSON.parse` message, a platform read error. It reads the same in both
+ * languages because translating a quotation would misquote it.
+ */
+function verbatim(text: string): Str {
+  return { en: text, zh: text }
+}
+
+/**
+ * Everything this file can say about a broken file. Written out as a table so a
+ * reason is authored once, in both languages, rather than at each call site —
+ * and so `REASON.trailingContent` can be recognised by identity below instead of
+ * by matching English prose that a translation would have quietly broken.
+ */
+const REASON = {
+  parserFailed: { en: 'parser failed', zh: '解析器出错' },
+  notJson: { en: 'not JSON or JSONL', zh: '既不是 JSON 也不是 JSONL' },
+  trailingContent: {
+    en: 'trailing content after the top-level value',
+    zh: '顶层的值结束之后还有多余的内容',
+  },
+  trailingComma: { en: 'trailing comma', zh: '多了一个逗号' },
+  emptyElement: { en: 'empty element', zh: '空的元素' },
+  wantPropertyName: { en: 'expected a property name', zh: '这里应该是一个属性名' },
+  wantColon: { en: 'expected ":"', zh: '这里应该是 ":"' },
+  wantValue: { en: 'expected a value', zh: '这里应该是一个值' },
+  wantCommaOrClose: {
+    en: 'expected "," or a closing bracket',
+    zh: '这里应该是 "," 或者右括号',
+  },
+  badPropertyName: { en: 'unreadable property name', zh: '读不出来的属性名' },
+  unterminatedString: { en: 'unterminated string', zh: '字符串没有收尾' },
+  endedInsideValue: { en: 'file ended inside a value', zh: '文件在一个值的中间就结束了' },
+} satisfies Record<string, Str>
+
+/** `expected "["` and friends: the bracket is punctuation, not a word. */
+function wantChar(char: string): Str {
+  return { en: `expected "${char}"`, zh: `这里应该是 "${char}"` }
+}
+
 /** ParseProblem has no message field, so the reason is folded into `excerpt`. */
-function excerpt(reason: string, snippet: string): string {
+function excerpt(reason: Str, snippet: string): Str {
   const clean = snippet.replace(/\s+/g, ' ').trim()
   if (!clean) return reason
   const body = clean.length > EXCERPT_CHARS ? `${clean.slice(0, EXCERPT_CHARS)}…` : clean
-  return `${reason}: ${body}`
+  return { en: `${reason.en}: ${body}`, zh: `${reason.zh}：${body}` }
 }
 
 /* ------------------------------------------------------------ entry points */
@@ -153,9 +203,13 @@ export async function parseStream(
   let salvaged = false
   let suppressed = 0
   let declaredFormat: string | undefined
+  // Set even when the problem itself is suppressed by MAX_PROBLEMS: the shape
+  // warning it triggers below is about the whole file, not about one segment.
+  let sawTrailingContent = false
 
   const ctx: Ctx = {
     problem(at, kind, reason, snippet = '') {
+      if (reason === REASON.trailingContent) sawTrailingContent = true
       if (problems.length >= MAX_PROBLEMS) {
         suppressed++
         return
@@ -174,7 +228,7 @@ export async function parseStream(
    * way to reach the salvaged records from a rejection.
    */
   const noteReadError = (error: unknown) => {
-    ctx.problem(0, 'malformed-json', 'parser failed', String(error))
+    ctx.problem(0, 'malformed-json', REASON.parserFailed, String(error))
     ctx.salvage()
   }
 
@@ -252,11 +306,11 @@ export async function parseStream(
     } else if (shape === 'json-object') {
       declaredFormat = await collectObject(stream, sink, ctx)
     } else {
-      ctx.problem(0, 'malformed-json', 'not JSON or JSONL', probe.slice(0, EXCERPT_CHARS))
+      ctx.problem(0, 'malformed-json', REASON.notJson, probe.slice(0, EXCERPT_CHARS))
     }
   } catch (error) {
     // The walkers are written not to throw; if one ever does, keep what we have.
-    ctx.problem(0, 'malformed-json', 'parser failed', String(error))
+    ctx.problem(0, 'malformed-json', REASON.parserFailed, String(error))
     ctx.salvage()
   }
 
@@ -264,19 +318,33 @@ export async function parseStream(
   // A document that ends in trailing content is almost always JSONL whose first
   // record outran the probe budget above. Say so: silently keeping record 1 of
   // several thousand is the one failure here that looks like success.
-  if (shape !== 'jsonl' && problems.some(p => p.excerpt.startsWith('trailing content'))) {
+  if (shape !== 'jsonl' && sawTrailingContent) {
+    const budget = MAX_PROBE_LINE >> 20
     problems.push({
       at: 0,
       kind: 'malformed-json',
-      excerpt:
-        `read as a single ${shape} because the first line exceeds the ` +
-        `${MAX_PROBE_LINE >> 20} MiB shape probe; if this file is JSONL, records after ` +
-        `the first were not read`,
+      excerpt: {
+        // `shape` is one of this file's own format ids and reads the same either way.
+        en:
+          `read as a single ${shape} because the first line exceeds the ` +
+          `${budget} MiB shape probe; if this file is JSONL, records after ` +
+          `the first were not read`,
+        zh:
+          `第一行超过了 ${budget} MiB 的形状探测上限，所以整个文件按一个 ${shape} 读；` +
+          `如果它其实是 JSONL，那么第一条之后的记录都没有被读进来`,
+      },
     })
     ctx.salvage()
   }
   if (suppressed > 0) {
-    problems.push({ at: 0, kind: 'malformed-json', excerpt: `…and ${suppressed} more problems (list truncated)` })
+    problems.push({
+      at: 0,
+      kind: 'malformed-json',
+      excerpt: {
+        en: `…and ${suppressed} more problems (list truncated)`,
+        zh: `……还有 ${suppressed} 处问题（列表已截断）`,
+      },
+    })
   }
 
   return {
@@ -337,7 +405,8 @@ async function parseLines(chunks: AsyncIterable<string>, sink: Sink, ctx: Ctx): 
     try {
       sink.push(JSON.parse(text))
     } catch (error) {
-      ctx.problem(line, 'malformed-json', String((error as Error).message ?? error), text)
+      // `JSON.parse`'s own message: the platform's words, quoted, not translated.
+      ctx.problem(line, 'malformed-json', verbatim(String((error as Error).message ?? error)), text)
       ctx.salvage()
     }
   }
@@ -498,7 +567,7 @@ async function walkContainer(
   const at = () => base + i
   const ahead = () => buf.slice(i, i + EXCERPT_CHARS)
 
-  const fail = (kind: ParseProblem['kind'], reason: string, offset = at(), snippet = ahead()) => {
+  const fail = (kind: ParseProblem['kind'], reason: Str, offset = at(), snippet = ahead()) => {
     ctx.problem(offset, kind, reason, snippet)
     ctx.salvage()
   }
@@ -595,7 +664,7 @@ async function walkContainer(
             stack.push({ open, close: rootClose, container: null, ownKey: null, key: null, sawComma: false })
             state = open === '{' ? 'key' : 'value'
           } else {
-            fail('malformed-json', `expected "${open}"`)
+            fail('malformed-json', wantChar(open))
             stopped = true
           }
           break
@@ -606,15 +675,15 @@ async function walkContainer(
           if (i >= buf.length) return
           const c = buf[i]
           if (c === '}' || c === ']') {
-            if (c !== frame.close) fail('malformed-json', `expected "${frame.close}"`)
-            else if (frame.sawComma) fail('malformed-json', 'trailing comma')
+            if (c !== frame.close) fail('malformed-json', wantChar(frame.close))
+            else if (frame.sawComma) fail('malformed-json', REASON.trailingComma)
             i++
             popFrame()
           } else if (c === '"') {
             readingKey = true
             beginScan('string')
           } else {
-            fail('malformed-json', 'expected a property name')
+            fail('malformed-json', REASON.wantPropertyName)
             state = 'resync'
             inString = false
             escaped = false
@@ -628,7 +697,7 @@ async function walkContainer(
             i++
             state = 'value'
           } else {
-            fail('malformed-json', 'expected ":"')
+            fail('malformed-json', REASON.wantColon)
             state = 'resync'
             inString = false
             escaped = false
@@ -641,13 +710,13 @@ async function walkContainer(
           if (i >= buf.length) return
           const c = buf[i]
           if (c === '}' || c === ']') {
-            if (c !== frame.close) fail('malformed-json', `expected "${frame.close}"`)
-            else if (frame.sawComma) fail('malformed-json', 'trailing comma')
-            else if (frame.open === '{') fail('malformed-json', 'expected a value')
+            if (c !== frame.close) fail('malformed-json', wantChar(frame.close))
+            else if (frame.sawComma) fail('malformed-json', REASON.trailingComma)
+            else if (frame.open === '{') fail('malformed-json', REASON.wantValue)
             i++
             popFrame()
           } else if (c === ',') {
-            fail('malformed-json', 'empty element')
+            fail('malformed-json', REASON.emptyElement)
             i++
           } else if ((c === '{' || c === '[') && stack.length < maxDepth) {
             pushFrame(c)
@@ -668,7 +737,7 @@ async function walkContainer(
             try {
               deliver(frame.key, JSON.parse(text))
             } catch (error) {
-              fail('malformed-json', String((error as Error).message ?? error), base + start, text)
+              fail('malformed-json', verbatim(String((error as Error).message ?? error)), base + start, text)
             }
             frame.key = null
             state = 'after'
@@ -689,7 +758,7 @@ async function walkContainer(
             i++
             popFrame()
           } else {
-            fail('malformed-json', 'expected "," or a closing bracket')
+            fail('malformed-json', REASON.wantCommaOrClose)
             state = 'resync'
             inString = false
             escaped = false
@@ -727,7 +796,7 @@ async function walkContainer(
         case 'tail': {
           while (i < buf.length && isWs(buf[i])) i++
           if (i >= buf.length) return
-          fail('malformed-json', 'trailing content after the top-level value')
+          fail('malformed-json', REASON.trailingContent)
           stopped = true
           break
         }
@@ -739,7 +808,7 @@ async function walkContainer(
     try {
       return String(JSON.parse(text))
     } catch {
-      fail('malformed-json', 'unreadable property name', base + start, text)
+      fail('malformed-json', REASON.badPropertyName, base + start, text)
       return text
     }
   }
@@ -773,7 +842,7 @@ async function walkContainer(
     }
     fail(
       inString ? 'unterminated' : 'unexpected-eof',
-      inString ? 'unterminated string' : 'file ended inside a value',
+      inString ? REASON.unterminatedString : REASON.endedInsideValue,
       base + start,
       buf.slice(start, start + EXCERPT_CHARS),
     )
@@ -795,7 +864,12 @@ async function walkContainer(
   // Hand back partial containers so a truncated envelope still yields elements.
   while (stack.length > 1) popFrame()
   if (ranOut && state !== 'scan') {
-    fail('unexpected-eof', `file ended before "${rootClose}"`, at(), '')
+    fail(
+      'unexpected-eof',
+      { en: `file ended before "${rootClose}"`, zh: `文件在 "${rootClose}" 之前就结束了` },
+      at(),
+      '',
+    )
   }
 }
 

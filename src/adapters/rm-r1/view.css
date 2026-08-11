@@ -1,0 +1,250 @@
+/* The tab shell. Three rows: the tabs, what the model knows that the numbers do
+   not say, and whichever view is showing — which owns its own scrolling, so the
+   panel area is bounded and never grows the page. Colours are tokens from
+   index.css. */
+
+.rmr1 {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: var(--sp-2);
+  height: 100%;
+  min-height: 0;
+}
+
+.rmr1-tabs {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.rmr1-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: var(--sp-2) var(--sp-3);
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  /* The tab strip sits on the border, so the active tab can cover it. */
+  margin-bottom: -1px;
+}
+
+.rmr1-tab:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+/* Selection is carried by the surface, the border and the weight — never by
+   colour alone, which is also what keeps it legible on a projector. */
+.rmr1-tab.is-active {
+  font-weight: 600;
+  background: var(--bg-raised);
+  border-color: var(--border);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.rmr1-tab-hint {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------- about box */
+
+/* Sized to the notes it has rather than clipped to a fixed height: a caveat
+   inside a scroll box shorter than one note is a caveat nobody reads. Collapsed,
+   whole notes are shown and the head says how many are left; open, the whole set
+   — notes, the sampling rule and the coverage ledger — scrolls inside a box that
+   still leaves more than half the screen to the view below it, because on the
+   Judgements tab that view is what the reader came for. */
+/* The cap is on the whole box, not on the note list inside it. A cap on the list
+   alone is a cap on one of three parts: with the head, the sampling rule and the
+   coverage ledger added the box grew past the viewport and the grid row below —
+   the view the reader came for — was squeezed to nothing. Bounded here, the head
+   stays put and everything under it scrolls. */
+.rmr1-about {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-height: min(40vh, 32em);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* Source paths and record ids are long and unbroken; they wrap rather than
+     widen the page. */
+  overflow-wrap: anywhere;
+}
+
+.rmr1-about-head {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+}
+
+.rmr1-about-title {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.rmr1-about-chip {
+  padding: 1px 6px;
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.rmr1-about-toggle {
+  font-size: var(--fs-xs);
+  padding: 2px var(--sp-2);
+}
+
+/* Always on screen, open or collapsed. It is one sentence, and it is the one a
+   reader checks before believing any number below it. */
+.rmr1-about-method {
+  flex: none;
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text);
+}
+
+.rmr1-about-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-height: 0;
+}
+
+.rmr1-about-body.is-open {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.rmr1-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0;
+  padding-left: var(--sp-4);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------ sampling disclosure */
+
+.rmr1-sampling {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding-top: var(--sp-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+  border-top: 1px dashed var(--border-strong);
+}
+
+.rmr1-sampling-title,
+.rmr1-sampling-part h5 {
+  margin: 0;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.rmr1-sampling-rules,
+.rmr1-sampling-part ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0;
+  padding-left: var(--sp-4);
+}
+
+.rmr1-sampling-part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin-top: var(--sp-1);
+}
+
+.rmr1-sampling .mono {
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------- coverage ledger */
+
+.rmr1-coverage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding-top: var(--sp-2);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+  border-top: 1px dashed var(--border-strong);
+}
+
+.rmr1-coverage-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* One entry is a claim (the figure), its denominator, its source and a caveat.
+   The rule between entries is what stops two denominators being read as one. */
+.rmr1-coverage-list > li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: var(--sp-2);
+  border-left: 2px solid var(--border);
+}
+
+.rmr1-coverage-list p {
+  margin: 0;
+}
+
+.rmr1-cov-figure {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* The denominator is the part a reader is checking, so it reads as a number and
+   not as more prose. */
+.rmr1-cov-basis .mono {
+  color: var(--text);
+}
+
+.rmr1-cov-from {
+  overflow-wrap: anywhere;
+}
+
+.rmr1-panel-area {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  .rmr1-tab-hint {
+    display: none;
+  }
+
+  /* A phone has one screen, and the list under this box needs enough of it to
+     be a list. The disclosure is still open and still first. */
+  .rmr1-about {
+    max-height: 36vh;
+  }
+}

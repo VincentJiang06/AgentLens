@@ -316,11 +316,16 @@ td {
   vertical-align: top;
 }
 
+/* No `text-transform: uppercase` here, for the same reason `.panel-header` has
+   none: a column head is as often the data's word as ours. RM-Bench's own metric
+   names head the by-domain table — `hard`, `normal`, `easy`, the very keys the
+   rows below spell `hard_acc`, `normal_acc`, `easy_acc` — and setting them in
+   capitals rewrites somebody else's string on screen while the DOM still says
+   otherwise. Rank comes from weight, size and colour instead. */
 th {
   font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--text-faint);
   white-space: nowrap;
 }
@@ -420,10 +425,15 @@ textarea:focus-visible {
 
 /* The app owns the viewport; every scrollbar belongs to an inner pane.
    `min-height: 0` is load-bearing — without it a grid/flex child refuses to
-   shrink and the virtual list grows the page instead of scrolling. */
+   shrink and the virtual list grows the page instead of scrolling.
+   `minmax(0, 1fr)` is the horizontal half of the same rule: the implicit column
+   is `auto`, which sizes to the widest min-content in the grid, so one nowrap
+   line in the top bar sets the width of the whole document and the page scrolls
+   sideways under it. Measured at 375px before the fix: scrollWidth 501. */
 .app {
   display: grid;
   grid-template-rows: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr);
   height: 100%;
   background: var(--bg-sunken);
 }
@@ -443,14 +453,50 @@ textarea:focus-visible {
   overflow: auto;
 }
 
+/* `min-height`, not `height`: see the privacy rules below, which are allowed to
+   make this bar taller rather than cut a sentence short. `.app` is a grid of
+   `auto 1fr auto`, so the row it grows into comes out of the main pane. */
 .topbar {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  height: var(--topbar-h);
+  min-height: var(--topbar-h);
   padding: 0 var(--sp-4);
   background: var(--bg-raised);
   border-bottom: 1px solid var(--border);
+}
+
+/* The privacy promise is the product's central claim, and half of it is not a
+   claim: "All data stays in y…" and "不会上传任何数…" promise nothing. So it is
+   the one line in this app that never gets an ellipsis — it wraps, and the bar
+   grows. Measured at 570px, the width where App.css swaps in the full sentence,
+   that sentence is 298px wide in a 298px box: without this rule every window
+   between the swap and an exact fit clipped it, and the same held at the short
+   form's own crossover near 430px.
+
+   This reaches into `.privacy` (laid out in App.css, which loads after this
+   file) only to undo the truncation this file's own `.truncate` applies, and is
+   scoped to `.topbar` so it wins on specificity rather than on order. */
+.topbar .privacy.truncate {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}
+
+/* Narrower than that and wrapping in place leaves a one-word-wide column between
+   the brand and the toggles, so the bar becomes two rows instead: controls, then
+   the promise across the full width. 440px is just above the 430px where the
+   short English form stops fitting beside them. */
+@media (max-width: 440px) {
+  .topbar {
+    flex-wrap: wrap;
+    padding-block: var(--sp-2);
+  }
+
+  .topbar .privacy {
+    order: 1;
+    flex: 1 0 100%;
+  }
 }
 
 .statusbar {
@@ -502,6 +548,12 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+/* No `text-transform: uppercase` here, deliberately. Panel headers carry data as
+   often as they carry our own labels — a dropped file's own name in the record
+   browser (`record notes.jsonl:12`), a benchmark's own capitalisation
+   (`RewardBench`), a `?record=` value quoted back to the reader — and uppercasing
+   those rewrites somebody else's string on screen while the DOM still says
+   otherwise. Rank and weight do the same job without touching the characters. */
 .panel-header {
   display: flex;
   flex: none;
@@ -512,7 +564,6 @@ textarea:focus-visible {
   font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--text-faint);
   background: var(--bg-sunken);
   border-bottom: 1px solid var(--border);

@@ -14,9 +14,18 @@
  *
  * Pure — no module state, no registry import. `adapters/registry.ts` supplies the
  * candidates.
+ *
+ * Warnings carry a `Str`, not a string: dispatch warnings are the first thing on
+ * a dataset's notice stack, so an English-only one puts English above every
+ * Chinese notice under it, and it is exactly the reader who cannot read it who
+ * most needs to know their file was not understood. The type makes a
+ * monolingual warning a compile error rather than a thing to remember. Names
+ * that came out of the drop — file names, format tags, adapter names, an
+ * adapter's own thrown message — are interpolated verbatim into both sides.
  */
 
 import type { Adapter, Confidence, ParsedFile } from '../types'
+import type { Str } from './lang'
 
 /** Highest score below this and nobody owns the data. */
 export const CONFIDENCE_FLOOR = 0.5
@@ -60,7 +69,7 @@ export type DispatchWarningKind =
 
 export interface DispatchWarning {
   kind: DispatchWarningKind
-  message: string
+  message: Str
 }
 
 export interface Dispatch {
@@ -96,9 +105,13 @@ export function selectAdapter(files: ParsedFile[], candidates: Candidate[]): Dis
   if (declared) {
     const distinct = [...new Set(declarations.map((d) => d.raw))]
     if (distinct.length > 1) {
+      const listed = distinct.join(', ')
       warnings.push({
         kind: 'conflicting-declarations',
-        message: `Files declare more than one format (${distinct.join(', ')}). Using "${declared.raw}" from ${declared.fileName}.`,
+        message: {
+          en: `Files declare more than one format (${listed}). Using "${declared.raw}" from ${declared.fileName}.`,
+          zh: `这些文件声明了不止一种格式（${listed}）。采用 ${declared.fileName} 里的 "${declared.raw}"。`,
+        },
       })
     }
 
@@ -109,9 +122,13 @@ export function selectAdapter(files: ParsedFile[], candidates: Candidate[]): Dis
         match.formatVersions.length > 0 &&
         !match.formatVersions.includes(declared.version)
       ) {
+        const known = `${declared.name}@${match.formatVersions.join(', @')}`
         warnings.push({
           kind: 'unknown-format-version',
-          message: `${declared.fileName} declares ${declared.raw}; this build reads ${declared.name}@${match.formatVersions.join(', @')}. Opening it anyway — fields may be missing.`,
+          message: {
+            en: `${declared.fileName} declares ${declared.raw}; this build reads ${known}. Opening it anyway — fields may be missing.`,
+            zh: `${declared.fileName} 声明的是 ${declared.raw}；这个版本读的是 ${known}。仍然打开，但可能缺少字段。`,
+          },
         })
       }
       return { outcome: 'declared', adapter: match.adapter, confidence: 1, declared, scores: [], warnings }
@@ -119,7 +136,10 @@ export function selectAdapter(files: ParsedFile[], candidates: Candidate[]): Dis
 
     warnings.push({
       kind: 'unknown-format',
-      message: `${declared.fileName} declares format "${declared.name}", which no adapter in this build handles. Falling back to fingerprint matching.`,
+      message: {
+        en: `${declared.fileName} declares format "${declared.name}", which no adapter in this build handles. Falling back to fingerprint matching.`,
+        zh: `${declared.fileName} 声明的格式是 "${declared.name}"，这个版本里没有适配器认得它。改用字段指纹匹配。`,
+      },
     })
   }
 
@@ -148,7 +168,10 @@ function readDeclarations(files: ParsedFile[], warnings: DispatchWarning[]): Dec
     if (tag === null) {
       warnings.push({
         kind: 'malformed-declaration',
-        message: `${file.fileName}: agentlens_format "${raw}" is not "<name>@<version>" — ignored.`,
+        message: {
+          en: `${file.fileName}: agentlens_format "${raw}" is not "<name>@<version>" — ignored.`,
+          zh: `${file.fileName}：agentlens_format "${raw}" 不是 "<name>@<version>" 的写法，已忽略。`,
+        },
       })
       continue
     }
@@ -190,7 +213,13 @@ function score(candidate: Candidate, files: ParsedFile[], warnings: DispatchWarn
   }
 
   if (error !== undefined) {
-    warnings.push({ kind: 'sniff-failed', message: `Adapter "${name}" failed to inspect a file: ${error}` })
+    warnings.push({
+      kind: 'sniff-failed',
+      message: {
+        en: `Adapter "${name}" failed to inspect a file: ${error}`,
+        zh: `适配器 "${name}" 在检查文件时出错：${error}`,
+      },
+    })
   }
 
   return {
