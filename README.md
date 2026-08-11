@@ -93,7 +93,19 @@ concatenated into one JSON array and otherwise untouched — their files. The M3
 no file of theirs: it is what their kernel computed from those cases when we replayed them,
 labels and verdicts alike, produced by
 [`scripts/arbiteros-runner/run.py`](scripts/arbiteros-runner/README.md) against a checkout you
-supply. No ArbiterOS code is vendored here either way. Attribution, the license, and the exact
+supply. No ArbiterOS code is vendored here either way.
+
+Two mechanical steps sit on either side of that replay, and a reader has to know both to trust
+the result. The cases hardcode `/root/redteam/...` paths, and the replay rewrites them onto the
+machine it runs on — the same substitutions upstream's own batch runner makes — because several
+policies match on *where a file lives*, and replayed without the rewrite almost nothing fires and
+the package would describe a policy engine that never triggers. Then, before a byte is written,
+those paths are rewritten back to the placeholders `<redteam>`, `<arbiteros-kernel>` and
+`<openclaw-home>`, so the published package carries no path belonging to whoever ran it; the
+runner counts what is left and refuses to write the file if any survives. Both steps are argued in
+[the runner's README](scripts/arbiteros-runner/README.md).
+
+Attribution, the license, and the exact
 changes made are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); the app credits the
 source on screen whenever either demo is open. If the ArbiterOS maintainers would rather
 either not be redistributed, open an issue and it will be removed.
@@ -161,28 +173,43 @@ sits under all of it: every learner is replayed over the same prompt stream, whi
 `test.py` does not do, so learner-against-learner is a comparison over the same tasks.
 
 The ArbiterOS package is not sampled — all 105 cases, all 500 instructions — so its problem is
-not a denominator but a number that reads as its opposite, and it is the first number the
-author of a red-team suite would look at. `intercepted` is 1: of the 105 cases, the kernel
-rewrote exactly one response, `openclaw_p9_process_poll_loop`, stopped by `RateLimitPolicy` on
-a per-tool budget. `flagged` is 66, and the package's own sentence describes that as the number
-of cases that tripped a policy. Measured, it is not. 65 of the 66 are `UnaryGatePolicy`
-re-serialising a tool call's arguments with the keys in a different order, with no rule matched
-and nothing removed — checked over all 105 rather than sampled: parse each `arguments` string
-back into JSON and the response the chain was handed compares equal to the response it returned
-in every one. **Neither number is the suite's detection rate and neither should be read as
-one.**
+not a denominator but which of its counts may be read as detection. It carries four, and they
+are not four views of one number.
 
-What the run does say about detection is measured in
+`intercepted` is 1: of the 105 cases the kernel rewrote exactly one response,
+`openclaw_p9_process_poll_loop`, stopped by `RateLimitPolicy` on a per-tool budget (`41>20`).
+That is what the shipped configuration *enforced*.
+
+`flagged` is 66 and is not a detection count. The package says so itself, in
+`how_to_read_the_counts`, and the adapter renders that sentence rather than paraphrasing it. 65
+of the 66 are `UnaryGatePolicy` re-serialising a tool call's arguments with the keys in a
+different order, with no rule matched and nothing removed — checked over all 105 rather than
+sampled: parse each `arguments` string back into JSON and the response the chain was handed
+compares equal to the response it returned in every one. **0 of those 65 changed anything.**
+
+`wouldBlock` is the kernel's `inactivate_error_type`: what it writes down when a policy would
+have changed the response and the registry has that policy observe-only, so the would-be refusal
+is recorded and the original response is returned unchanged. It is non-empty on 87 of the 105 —
+and 87 is not a detection count either, for a reason worth knowing before quoting it.
+`apply_policy_enforcement_mode` substitutes the fixed string `policy would have modified the
+response` whenever the policy it is gating produced no refusal text of its own, which is the
+same argument-canonicalisation branch that inflates `flagged`. Counted over the shipped package:
+38 of the 87 carry a refusal the kernel composed, and the other 49 carry that fallback string
+and nothing else.
+
+So the finding, with every denominator it needs: **a policy produced a refusal on 39 of the 105
+cases — 21 of the 45 the suite labels unsafe and 18 of the 60 it labels safe. One of the 39 was
+enforced; the other 38 were recorded and dropped**, because `policy_registry.json` registers 11
+of its 15 policies observe-only — the four that enforce are `RateLimitPolicy`,
+`RelationalPolicy`, `UnaryGatePolicy` and `AlignmentSentinelPolicy`. Separately, 9 of the 105
+carry an instruction whose propagated trust is `LOW`; no step in this suite is labelled `HIGH`
+confidentiality at all, so that half of the taint test never matches here.
+
+That is a coverage report of ArbiterOS's own suite under ArbiterOS's own default configuration,
+and not a criticism of the kernel: a default that mostly observes is a defensible default, and
+knowing where it observes is worth having. Every number above is measured in
 [`scripts/arbiteros-runner/README.md`](scripts/arbiteros-runner/README.md), with the per-policy
-table under it. All fifteen registered policies run on every case; `enabled` in
-`policy_registry.json` decides only what happens when one fires, and four of the fifteen enforce
-in the shipped default. Recording each policy's own verdict before that gate, 39 of the 105
-cases produce a refusal — 21 of the 45 the suite labels unsafe, 18 of the 60 it labels safe —
-and in 38 of the 39 every such policy is observe-only, so the refusal is computed and then
-discarded. Those 38 are not in this package: the kernel hands them back in
-`inactivate_error_type` and the runner does not record that field yet. So what this package
-supports today is a statement about what the shipped configuration *enforced*, not about what
-the suite *detects*, and the two are far apart.
+table under it.
 
 ## The privacy property, precisely
 

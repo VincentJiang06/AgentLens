@@ -40,6 +40,12 @@ export interface Candidate {
    * naming an unlisted version still routes here — it is reported, not rejected.
    */
   formatVersions: string[]
+  /**
+   * Format names this adapter answers to besides `adapter.name`, for a producer
+   * whose tag is not the adapter's registry key. The adapter's own name always
+   * matches, so this is empty for every adapter whose package agrees with it.
+   */
+  formatNames?: string[]
 }
 
 export interface DeclaredFormat {
@@ -115,7 +121,9 @@ export function selectAdapter(files: ParsedFile[], candidates: Candidate[]): Dis
       })
     }
 
-    const match = candidates.find((c) => c.adapter.name === declared.name)
+    const match = candidates.find(
+      (c) => c.adapter.name === declared.name || (c.formatNames?.includes(declared.name) ?? false),
+    )
     if (match) {
       if (
         declared.version !== undefined &&

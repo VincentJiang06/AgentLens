@@ -282,16 +282,33 @@ function rewardBenchRun(fileName: string, file: string): Run {
  * var runs the lot: `AGENTLENS_REAL_LOGS` is a run directory, so its parent is
  * the pair.
  */
-const LOGS =
-  process.env.RM_R1_LOGS ??
-  (process.env.AGENTLENS_REAL_LOGS === undefined
-    ? undefined
-    : path.dirname(process.env.AGENTLENS_REAL_LOGS))
+const RAW_LOGS = process.env.RM_R1_LOGS ?? process.env.AGENTLENS_REAL_LOGS
+const LOGS = RAW_LOGS === undefined || RAW_LOGS === '' ? undefined : path.dirname(RAW_LOGS)
 const RELEASED = 'reward_bench/log_result/logs.json'
+
+/**
+ * The two directories this test needs by name. Naming them here rather than
+ * inside the test is what lets the skip reason be specific: the env var is a
+ * pointer to *some* run, and only one particular pair of runs is what these
+ * numbers were measured on. Pointed at any other run — a 14B, a private one, a
+ * single-model checkout — the old guard read `LOGS` as truthy and threw ENOENT
+ * out of `readFileSync`, which reads as a broken test rather than as an
+ * inapplicable one.
+ */
+const RELEASED_PAIR = ['RM-R1-Qwen2.5-Instruct-32B', 'RM-R1-DeepSeek-Distilled-Qwen-32B']
+
+const missingRelease =
+  LOGS === undefined
+    ? 'set RM_R1_LOGS (or AGENTLENS_REAL_LOGS) to run this against the released logs'
+    : RELEASED_PAIR.map((name) => path.join(LOGS, name, RELEASED)).find(
+        (file) => !fs.existsSync(file),
+      )
 
 test(
   'the two released 32B RewardBench runs align completely and are not mirrored',
-  { skip: LOGS ? false : 'set RM_R1_LOGS (or AGENTLENS_REAL_LOGS) to run this against the released logs' },
+  {
+    skip: missingRelease === undefined ? false : `not the released 32B pair: ${missingRelease} is not there`,
+  },
   () => {
     const root = LOGS ?? ''
     const one = rewardBenchRun(

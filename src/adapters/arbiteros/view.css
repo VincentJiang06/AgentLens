@@ -1,0 +1,218 @@
+/* The ArbiterOS tab shell. Four rows: the tabs, a report of a `?record=` that
+   missed, what the model knows that the numbers do not say, and whichever view
+   is showing — which owns its own scrolling, so the panel row is bounded and
+   never grows the page.
+
+   Every colour is a token from index.css and nothing here is invented: the tab
+   strip is the same construction as `rm-r1/view.css`, deliberately, so a reader
+   who has seen one adapter's tabs has seen this one's. `.notice`, `.btn`,
+   `.spacer` and `.muted` are the shell's and are only arranged here. */
+
+/* A column, not a four-row grid. The grid this replaces named a row for the
+   dead-link notice, and that notice is absent on every load that did not come
+   from a broken link — so the panel took the third row, the fourth stayed empty,
+   and on a phone the panel was left with 0px. A case list with no height draws
+   no rows at all: not a cramped list, an empty screen. Auto placement is not
+   something to lay a fixed height plan on top of.
+
+   The floor is the other half of the fix. `min-height` on the panel keeps a
+   readable box under it whatever the chrome above costs, and the page scroller
+   takes the overflow; without it the tabs and the notes eat a 500px viewport
+   between them and leave nothing.
+
+   `min-height` on a flex item, and not `min-content` or `auto`: everything below
+   this (`.ab-list`, `.vlist`, `.tg-canvas`) sizes itself as a percentage of this
+   box, and a percentage of an indefinite height is `auto` — which would unroll
+   all 105 rows at full height and undo the virtual list entirely. */
+.abv {
+  --abv-panel-min: min(520px, 68vh);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  height: 100%;
+  min-height: 0;
+  /* A flex item's automatic minimum size is its content's, so a wide table
+     inside the Policies tab would otherwise push this column past the viewport
+     and make every sentence beside it scroll sideways to be read. */
+  min-width: 0;
+}
+
+/* The dead-link notice is a shell `.notice`, which is a flex row; as a child
+   here it must keep its own height rather than be squeezed by the panel below
+   it. It is the sentence that tells a reader their link missed. */
+.abv > .notice {
+  flex: none;
+}
+
+.abv-tabs {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.abv-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: var(--sp-2) var(--sp-3);
+  background: none;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
+  /* The strip sits on the border, so the active tab can cover it. */
+  margin-bottom: -1px;
+}
+
+.abv-tab:hover:not(:disabled) {
+  background: var(--bg-hover);
+}
+
+/* Selection is carried by the surface, the border and the weight — never by
+   colour alone, which is also what keeps it legible on a projector. */
+.abv-tab.is-active {
+  font-weight: 600;
+  background: var(--bg-raised);
+  border-color: var(--border);
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+.abv-tab-hint {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+/* ------------------------------------------------------------------- notes */
+
+/* Sized to the notes it has rather than clipped to a fixed height, then capped:
+   a caveat inside a box shorter than one note is a caveat nobody reads, and a
+   box that eats the viewport is a case list nobody can scroll. Case ids and
+   policy names inside a note are long and unbroken, so they wrap rather than
+   widen the page. */
+.abv-notes {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-1);
+  max-height: min(38vh, 30em);
+  overflow: auto;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+
+.abv-notes-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  /* The head stays put while the notes under it scroll. */
+  position: sticky;
+  top: calc(var(--sp-2) * -1);
+  padding: var(--sp-1) 0;
+  margin-top: calc(var(--sp-1) * -1);
+  background: var(--bg-sunken);
+}
+
+.abv-notes-title {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.abv-notes-toggle {
+  flex: none;
+}
+
+.abv-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0;
+  padding-left: var(--sp-4);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+}
+
+/* -------------------------------------------------------------- panel area */
+
+.abv-panel {
+  flex: 1 1 auto;
+  min-height: var(--abv-panel-min);
+  min-width: 0;
+}
+
+/* The graph tab is the one view that may need a line above it — why this case
+   is the one on screen when nobody picked it. The graph itself is `height:100%`
+   and scrolls internally, so it takes the remaining row rather than pushing the
+   note off the top. */
+.abv-graph {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--sp-2);
+  height: 100%;
+  min-height: 0;
+}
+
+.abv-hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+}
+
+/* On a phone every row above the panel is competing for the same 500-odd
+   pixels, and the chrome was winning: a three-deep tab strip and a notes box
+   between them pushed the first screen of every view below the fold. Both give
+   most of it back here, and neither loses a word — the notes keep their own
+   scrollbar, the tab strip becomes one row that scrolls sideways, and the
+   figures in the tab hints stay exactly where they were. */
+@media (max-width: 900px) {
+  .abv-notes {
+    max-height: min(18vh, 8em);
+  }
+}
+
+@media (max-width: 640px) {
+  .abv-notes {
+    max-height: min(15vh, 7em);
+  }
+
+  .abv-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .abv-tab {
+    flex: 0 0 auto;
+    max-width: 60vw;
+    padding: var(--sp-1) var(--sp-2);
+  }
+}
+
+/* The narrowest phone, where the pane is 397–433px depending on how the top bar
+   wraps, and the chrome above the view was taking most of it — which is what
+   pushed the graph's own key off the bottom. The notes give up another 28px and
+   the fallback line about 30 more; both stay whole and scrollable, and both stay
+   above the view they qualify. */
+@media (max-width: 400px) {
+  .abv-notes {
+    max-height: min(12vh, 5em);
+  }
+
+  /* The line saying why this case is the one on screen runs to six lines of
+     English at 320px — a third of the pane, spent before the view starts. It
+     keeps every word and a scrollbar, like the notes above it. */
+  .abv-hint {
+    max-height: 4.5em;
+    overflow: auto;
+  }
+}

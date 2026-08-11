@@ -47,3 +47,7 @@ dist-ssr
 !/tsconfig.test.json
 !/tsconfig.node.json
 !/.oxlintrc.json
+
+# Python bytecode from the runner scripts (scripts/*-runner/)
+__pycache__/
+*.pyc

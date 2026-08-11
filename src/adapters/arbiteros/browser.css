@@ -1,0 +1,510 @@
+/* The case browser and the policy panel. Every colour is a token from
+   index.css, so both themes come out of the same rules; `.list-row`, `.panel`,
+   `.badge`, `.notice` and `.kv` are the shell's and are arranged here, never
+   restyled.
+
+   Nothing invented here but two mappings, and both are named where they are
+   used: the row rail's two colours (a policy matched / the response was
+   rewritten) and the bar in the per-policy table. Neither is ever the only
+   carrier of its meaning — the rail is repeated as `sr-only` text in the row
+   and named in the legend, and the bar sits beside the figure it draws. */
+
+/* ============================================================ case browser */
+
+.ab {
+  gap: var(--sp-2);
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+
+  /* Matches ROW_HEIGHT in CaseBrowser.tsx: 5 + 18 + 2 + 15 + 5 padding, lines
+     and gap, plus the 1px rule under the row. Uniform rows are what let the eye
+     run down 105 of them, and they are the only reason the JS-side estimate is
+     an honest scrollbar. */
+  --ab-row-h: 46px;
+}
+
+.ab-filters {
+  flex: none;
+  gap: var(--sp-1);
+}
+
+.ab-field {
+  display: flex;
+  min-width: 0;
+}
+
+.ab-field > select,
+.ab-field > input {
+  width: 100%;
+  min-width: 0;
+}
+
+.ab-search {
+  flex: 1 1 100%;
+}
+
+/* The counts. Wraps rather than truncates: the second span is the sentence that
+   keeps `matched a policy` and `response rewritten` in the same breath, and a
+   qualifier that ellipsises is a qualifier that was not made. */
+.ab-counts {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+}
+
+.ab-legend {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  font-size: var(--fs-xs);
+}
+
+/* The virtualizer owns the scrollbar, so this pane is bounded and never grows
+   with the case count. */
+.ab-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+}
+
+/* A row is a button so the list is operable from the keyboard; the rules below
+   undo the shell's button chrome rather than restyle `.list-row`. */
+.ab-row {
+  display: grid;
+  /* rail | text. The rail is flush to the row's left edge, so the policy column
+     reads as one continuous stripe rather than a row of dots. */
+  grid-template-columns: 3px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0 var(--sp-2);
+  width: 100%;
+  height: var(--ab-row-h);
+  padding: 5px var(--sp-3) 5px 0;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  text-align: left;
+}
+
+.ab-row[aria-current='true'] {
+  background: var(--bg-selected);
+}
+
+/* Never the only signal: every row also carries its state as `sr-only` text and
+   the legend above the list names all three. Spans both lines, so the scan down
+   the column costs the case id none of its width. */
+.ab-rail {
+  align-self: stretch;
+  background: var(--border-strong);
+  border-radius: 0 2px 2px 0;
+}
+
+/* Four states over the plain rail, ordered by what the kernel actually did.
+   `.rewritten` is the response that was substituted; `.wouldblock` is the one a
+   policy refused in writing and the kernel returned anyway — the detection, in
+   the alarm colour; `.wouldmodify` is a policy reporting a change it never gave
+   a reason for, which is a weaker thing and so wears a colour that reads as
+   "noted" rather than "alarm"; `.matched` is a recorded policy name and nothing
+   more, which is NOT a detection and is therefore the quietest. Every rail is
+   also spoken in the row as `sr-only` text and named in the legend, so none of
+   the four is carried by hue — which matters most for this pair, since
+   `.wouldblock` and `.wouldmodify` are the two a reader is likeliest to
+   conflate. */
+.ab-rail.matched {
+  background: var(--text-faint);
+}
+
+/* Dashed rather than a fourth hue: `--text-muted` and `--text-faint` are two
+   steps of the same grey and would have made this indistinguishable from
+   `.matched` beside it. A broken rail also says "partial" without relying on
+   colour vision at all, which is the right signal for a policy that reported a
+   change and never said why. */
+.ab-rail.wouldmodify {
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--text-muted) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+.ab-rail.wouldblock {
+  background: var(--warn);
+}
+
+.ab-rail.rewritten {
+  background: var(--bad);
+}
+
+/* The legend's swatch is the same element as the row's, so what is named is
+   literally what is shown. */
+.ab-legend .ab-rail {
+  display: inline-block;
+  width: 3px;
+  height: 0.9em;
+  vertical-align: -1px;
+  border-radius: 2px;
+}
+
+.ab-row-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* Line one: the id, then what the case attempts. Both are the suite's own
+   strings and both clamp on their own. The id keeps at most a bit over half the
+   line — it is the handle a reader types into a link — and what remains goes to
+   the attempt, which is what tells two neighbouring ids apart. */
+.ab-row-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
+  height: 18px;
+  line-height: 18px;
+}
+
+.ab-row-id {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 58%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+
+.ab-row-attempt {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+}
+
+/* Punctuation, not content: it separates two data strings and says nothing
+   about either, which is why it can live in the stylesheet. */
+.ab-row-attempt::before {
+  content: '· ';
+  color: var(--text-faint);
+}
+
+.ab-row-meta {
+  font-size: var(--fs-xs);
+  line-height: 15px;
+  color: var(--text-muted);
+}
+
+/* ============================================================ policy panel */
+
+/* `min-width: 0` is load-bearing, not tidiness: the per-policy table has a
+   520px minimum, and a flex column's minimum width is its widest child's. Left
+   at `auto` that minimum walks out through this panel and the grid item holding
+   it, and the whole tab — caption, enforcement lists, the honesty paragraph —
+   gets laid out at 699px inside a 357px phone. The page body still would not
+   scroll sideways, so the usual test passes while every sentence has to be read
+   by dragging. The table keeps its own scroller below; the prose does not. */
+.ab-pol {
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  min-width: 0;
+  max-width: 100%;
+  overflow: auto;
+}
+
+.ab-h {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* The pair. One box, one caption: the box is the reason neither figure can be
+   quoted off this screen without the other coming with it. */
+.ab-pair {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.ab-pair-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.ab-pair-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--sp-3);
+}
+
+.ab-figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.ab-figure-n {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xl);
+  line-height: var(--lh-tight);
+  color: var(--text);
+}
+
+/* The denominator is set smaller than the count but never lighter than
+   --text-muted: it is half of every figure on this screen, not an aside. */
+.ab-figure-d {
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+}
+
+.ab-figure-label {
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+}
+
+.ab-pair-caption {
+  font-size: var(--fs-base);
+  line-height: var(--lh-loose);
+}
+
+/* The package's own sentence, set as the quotation it is. */
+.ab-quote {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.ab-quote-label {
+  font-size: var(--fs-xs);
+}
+
+.ab-quote-body {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--fs-base);
+  line-height: var(--lh-loose);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--bg-inset);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.ab-config {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-2);
+  font-size: var(--fs-base);
+  line-height: var(--lh-loose);
+}
+
+.ab-modes {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) minmax(0, 1fr);
+  gap: var(--sp-2) var(--sp-3);
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+.ab-modes > dt {
+  color: var(--text-faint);
+}
+
+.ab-modes > dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+  margin: 0;
+  min-width: 0;
+}
+
+/* A policy name is data — same face as everywhere else it appears. */
+.ab-chip {
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.ab-table-wrap {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+  max-width: 100%;
+  /* Four columns of counts on a phone: the table keeps its own scrollbar so the
+     page body never scrolls sideways. */
+  overflow-x: auto;
+}
+
+.ab-table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.ab-table th,
+.ab-table td {
+  padding: var(--sp-2) var(--sp-3);
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+}
+
+.ab-table thead th {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  background: var(--bg-sunken);
+  white-space: nowrap;
+}
+
+.ab-table tbody th {
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* The row for the cases no policy matched. It is a count over the same
+   denominator as the rows above it, and it is set apart because it is not a
+   policy. */
+.ab-table tbody th.ab-rest {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.ab-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 96px;
+}
+
+.ab-cell-n {
+  font-family: var(--font-mono);
+}
+
+/* Drawn under the figure, not instead of it: the bar is a shape, the numerator
+   and denominator beside it are the claim. */
+.ab-bar {
+  height: 3px;
+  background: var(--bg-inset);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ab-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.ab-coverage {
+  flex: none;
+  font-size: var(--fs-xs);
+}
+
+.ab-failures {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: 0;
+  padding: 0 0 0 var(--sp-4);
+  font-size: var(--fs-sm);
+}
+
+.ab-details {
+  flex: none;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.ab-details > summary {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.ab-details[open] > summary {
+  margin-bottom: var(--sp-2);
+}
+
+/* The shell's `.notice` says the one thing; the list of fields sits beside it
+   rather than inside it, so the primitive is arranged and not restyled. */
+.ab-drift {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* On a phone the chrome above the list — five controls, the counts, the legend
+   — is taller than the slice of the pane the rows get. The controls pair up
+   into two columns and the legend drops its how-to-read line; the three colour
+   words and the counts both stay, because those are what the rows are read
+   against. */
+@media (max-width: 640px) {
+  .ab-filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ab-search {
+    grid-column: 1 / -1;
+  }
+
+  .ab-legend-hint {
+    display: none;
+  }
+
+  /* The id shrinks before the attempt does: at this width the attempt is the
+     only thing that separates two cases from the same family. */
+  .ab-row-id {
+    max-width: 45%;
+  }
+
+  .ab-pol {
+    padding: var(--sp-3);
+  }
+
+  .ab-modes {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-1);
+  }
+}

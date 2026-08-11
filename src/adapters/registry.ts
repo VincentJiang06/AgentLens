@@ -13,6 +13,17 @@ export interface RegisterOptions {
    * dropping the file. Omit if the adapter only ever handles third-party logs.
    */
   formatVersions?: string[]
+  /**
+   * Format *names* this adapter answers to, beyond its own registry key.
+   *
+   * `agentlens_format` is `<name>@<version>` and dispatch matches `<name>`
+   * against `adapter.name`, so a producer that writes a tag which is not the
+   * adapter key — `arbiteros-trace@1` for the `arbiteros` adapter — would have
+   * its package reported as handled by nobody and scored by fingerprint
+   * instead. Listing the tag here is a statement about what this adapter reads,
+   * not a rename: the adapter's own name always matches and never needs listing.
+   */
+  formatNames?: string[]
 }
 
 /** Insertion-ordered, which is what makes tie-breaking deterministic. */
@@ -31,6 +42,7 @@ export function register<Model>(adapter: Adapter<Model>, options: RegisterOption
   candidates.set(adapter.name, {
     adapter: adapter as unknown as Adapter,
     formatVersions: options.formatVersions ?? [],
+    formatNames: options.formatNames ?? [],
   })
 }
 

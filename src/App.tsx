@@ -113,6 +113,15 @@ const ZH_ADAPTER: Record<string, { label?: string; blurb?: string }> = {
   promptwise: {
     label: 'PromptWise 成本感知路由',
   },
+  // No `blurb`, for the same reason as rm-r1 and promptwise: this adapter's one
+  // card is described by DEMO_BLURB below, in both languages at once. It used to
+  // carry a Chinese sentence built on `counts.flagged` — "105 个里有 66 个至少
+  // 触发了一条策略" — which is the number the package itself now says is not a
+  // detection rate, and a landing card is exactly where such a number gets
+  // screenshotted out of everything that qualifies it.
+  arbiteros: {
+    label: 'ArbiterOS 策略重放',
+  },
   'arbiteros-preview': {
     label: 'ArbiterOS 红队用例',
     blurb: '每个用例：智能体在此之前看到过什么，以及它即将做出的决策。',
@@ -127,9 +136,11 @@ const ZH_DEMO: Record<string, string> = {
   // each label says. Neither is named after its file.
   'promptwise-tiered': 'PromptWise 路由 · 价格与能力不一致的模型',
   'promptwise-uniform': 'PromptWise 路由 · 每个模型成功率都一样',
-  // "全部 105 条" and not 样本, for the same reason the English says "all 105":
-  // the package is every case file upstream ships, so calling it a sample would
-  // be a claim about selection that no selection was made.
+  // Both ArbiterOS labels say 全部 105 and not 样本, for the same reason the
+  // English says "all 105": each package covers every case file upstream ships,
+  // so calling either a sample would be a claim about a selection that was never
+  // made. What separates them is the artifact — 重放 against 原始用例文件.
+  arbiteros: 'ArbiterOS 策略重放 · 全部 105 个红队用例、500 条指令',
   'arbiteros-preview': 'ArbiterOS 红队用例 · 全部 105 条',
 }
 
@@ -164,6 +175,20 @@ const DEMO_BLURB: Record<string, Str> = {
   'promptwise-uniform': {
     en: "The same eight routers on upstream's own setup, where every model succeeds about equally often however much it costs — so no model is worth escalating to, and the right answer is to settle on the cheapest and retry it. PromptWise ends at 0.86339 mean utility against 0.47765 for always-cheapest and −0.13290 for always-dearest, sending 98.018% of its calls to the 0.75 model. Invented data too, and the case where the mechanism buys nothing.",
     zh: '同样这八个路由器，跑在上游自己的设定上：不管多贵，每个模型成功的概率都差不多——于是没有哪个模型值得升级过去，正确答案就是认准最便宜的那个反复重试。PromptWise 收在 0.86339 的平均效用，一直用最便宜的是 0.47765，一直用最贵的是 −0.13290；它 98.018% 的调用都给了那个 0.75 的模型。数据同样是造出来的，这一份展示的是这套机制无利可图时的样子。',
+  },
+  // The one ArbiterOS replay package. Its adapter's own English blurb quotes
+  // `counts.flagged` — 66 — as the number of cases that trip a policy, and the
+  // package's `how_to_read_the_counts` now says in as many words that flagged is
+  // not a detection rate: 65 of the 66 are `UnaryGatePolicy` re-serialising a
+  // tool call's arguments, and 0 of the 65 change the response. So the card is
+  // described here instead, from the three numbers that survive being read
+  // literally, each with the same denominator: 39 of 105 cases where a policy
+  // produced a refusal, 1 of those actually rewritten, 9 of 105 carrying a
+  // lowered trust label. Every one of them is counted out of the package's own
+  // records in the runner's README, and the two READMEs say the same sentence.
+  arbiteros: {
+    en: "All 105 of ArbiterOS's red-team cases, replayed offline through ArbiterOS's own policy kernel — 500 instructions, and no model is called. A policy produced a refusal on 39 of the 105 — 21 of the 45 cases the suite labels unsafe and 18 of the 60 it labels safe. One response was actually rewritten; the other 38 refusals were recorded and then dropped, because policy_registry.json registers 11 of its 15 policies observe-only. 9 of the 105 carry an instruction whose propagated trust is LOW, and the graph names the earlier step that lowered it.",
+    zh: 'ArbiterOS 自己的全部 105 个红队用例，放回 ArbiterOS 自己的策略内核里离线重放——500 条 instruction，全程不调用模型。105 个里有 39 个产生了策略拒绝——套件标为 unsafe 的 45 个里占 21 个，标为 safe 的 60 个里占 18 个。其中 1 个的响应真的被改写，另外 38 个的拒绝被记录下来之后丢掉，因为 policy_registry.json 把 15 条策略里的 11 条注册成只观察。105 个里有 9 个含有传播后可信度为 LOW 的 instruction，而那张图会点出是更早的哪一步把它压下来的。',
   },
   'rm-r1-compare': {
     en: 'Two 32B checkpoints on the same RewardBench items: how often they agree over all 2,985, where they move apart by subset, and 40 judgements side by side — each one either answered differently or missed by both. Every score stays beside the run it belongs to.',
@@ -200,8 +225,12 @@ interface Planned {
   blurb: Str
   stage: string
   /**
-   * Shown on the live card when a *preview* of this row ships — a partial view
-   * has to say what it does not do yet. Unused while nothing previews the row.
+   * Shown on the card of an adapter that shares this row without *being* it
+   * (`<row>-<suffix>`). While the row itself is unbuilt that card is a partial
+   * view and the note has to say what it does not do yet; once the row ships,
+   * two cards stand side by side and the note has to say which artifact this one
+   * opens instead. Either way it is the sentence that keeps the pair from
+   * reading as one thing shown twice. Unused while nothing shares the row.
    */
   previewNote?: Str
 }
@@ -229,13 +258,18 @@ const PLANNED: Planned[] = [
     id: 'arbiteros',
     label: 'ArbiterOS',
     blurb: {
-      en: 'Agent red-team cases: what the agent had already seen, and the call it was about to make.',
-      zh: '智能体红队用例：智能体在此之前看到过什么，以及它即将做出的决策。',
+      en: 'Agent red-team cases replayed through the policy kernel: which policies fired, which response was rewritten, and where each instruction inherited its security labels from.',
+      zh: '把智能体红队用例灌进策略内核重放：哪些策略触发了、哪一次响应被改写，以及每条指令的安全标签是从哪一步继承来的。',
     },
     stage: 'M3',
+    // M3 ships, so this note no longer says what is missing — it says which of
+    // the two ArbiterOS cards this one is. `arbiteros-preview` was not retired:
+    // the case files and a replay of them are different artifacts, the raw files
+    // are the only thing on this site no kernel has touched, and every
+    // `?demo=arbiteros-preview` link already mailed still opens what it named.
     previewNote: {
-      en: 'M0 preview — the case list only. The full trace view lands in M3.',
-      zh: 'M0 预览：只有用例列表，完整的轨迹视图在 M3。',
+      en: 'The case files as upstream ships them, one per row, before any replay — nothing here has been through a kernel. The replay, with the policy verdicts and the label propagation, is the ArbiterOS policy replay card.',
+      zh: '上游发布时的原始用例文件，一行一条，未经任何重放——这里的内容没有被内核碰过。重放本身，连同策略判决与标签传播，在「ArbiterOS 策略重放」那张卡片里。',
     },
   },
   {

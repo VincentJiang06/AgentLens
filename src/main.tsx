@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
 import { register } from './adapters/registry'
+import { arbiterosAdapter } from './adapters/arbiteros'
 import { arbiterosPreviewAdapter } from './adapters/arbiteros-preview'
 import { promptWiseAdapter } from './adapters/promptwise'
 import { rmR1Adapter } from './adapters/rm-r1'
@@ -20,6 +21,17 @@ initTheme()
 initLang()
 register(rmR1Adapter, { formatVersions: ['1'] })
 register(promptWiseAdapter, { formatVersions: ['1'] })
+// `formatNames`, because the package `scripts/arbiteros-runner/run.py` writes
+// declares `arbiteros-trace@1` while the adapter is registered as `arbiteros` —
+// the name the landing page matches against the M3 roadmap row. Without the
+// alias, dispatch reports the demo package as handled by no adapter and falls
+// through to fingerprinting: it still opens, at confidence 1, but under a
+// warning that says the opposite of what happened. The alias states which tags
+// this adapter reads; it renames nothing, so the runner and its tests stand.
+register(arbiterosAdapter, { formatVersions: ['1'], formatNames: ['arbiteros-trace'] })
+// Registered after `arbiteros`, so the replay's card comes first and the raw
+// case files sit beside it. It is not superseded: the two cards open two
+// different artifacts, and `App.tsx` says which is which on the second one.
 register(arbiterosPreviewAdapter, { formatVersions: ['1'] })
 
 const container = document.getElementById('root')

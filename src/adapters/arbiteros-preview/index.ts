@@ -3,10 +3,18 @@
  * example an M1 adapter is meant to be copied from.
  *
  * It reads ArbiterOS red-team cases (`trace_id` + `prior[]` + `current{}`, one
- * case per record) and lists them. The view is deliberately small: M3 replaces
- * it wholesale with the real ArbiterOS trace view, registered under the name
- * `arbiteros`. What must survive M3 is everything around the view — the
- * fingerprint, the model shape, the demo package, and the record-id convention.
+ * case per record) and lists them. The view is deliberately small.
+ *
+ * M3 has shipped, as the `arbiteros` adapter, and did *not* replace this one —
+ * an earlier draft of this comment promised it would. The two read different
+ * artifacts: `arbiteros` reads a replay, whose security labels and policy
+ * verdicts exist only because `scripts/arbiteros-runner/run.py` put the cases
+ * through the kernel, and this reads the case files themselves, which is the one
+ * thing AgentLens ships that no kernel has touched. Retiring it would also break
+ * every `?demo=arbiteros-preview` link already mailed, for a card that opens
+ * something the M3 card does not. What it was built to prove still holds —
+ * the fingerprint, the model shape, the demo package and the record-id
+ * convention are what an adapter is, and M3 is the same four parts, larger.
  *
  * An adapter is one directory of three parts, and this is the whole manifest:
  *   model.ts   what the format is, and what a view needs from it. Pure — no React.

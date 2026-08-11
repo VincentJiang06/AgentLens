@@ -128,13 +128,21 @@ is not there, so the code being credited here is code the reader has to fetch th
 
 **What is derived from their files.** The cases are the input, so the package carries their
 content: each case's `id`, its path within their repository, and each step's `content` — a
-message's prose or a tool call's JSON — appear as they arrived. Two mechanical edits are made
-and both are described in
-[`scripts/arbiteros-runner/README.md`](scripts/arbiteros-runner/README.md): the eight path
-substitutions the upstream batch runner itself applies before every case (without which the
-policies match nothing), and the reduction of each instruction's much larger record down to the
-seven `security_type` fields a propagation graph needs. No verdict, label or count is edited,
-recomputed or rounded.
+message's prose or a tool call's JSON — appear as they arrived. Three mechanical edits are made
+and all three are described in
+[`scripts/arbiteros-runner/README.md`](scripts/arbiteros-runner/README.md):
+
+1. the eight path substitutions the upstream batch runner itself applies before every case,
+   which rewrite the cases' hardcoded `/root/...` onto the machine the replay runs on — several
+   policies match on where a file lives, and without this almost nothing fires;
+2. the reverse of that substitution, applied to every string of the finished structure before it
+   is written, so the paths of whoever ran the replay leave no trace in the published package:
+   they are replaced by `<redteam>`, `<arbiteros-kernel>` and `<openclaw-home>`, and the runner
+   refuses to write the file at all if a home-directory path survives;
+3. the reduction of each instruction's much larger record down to the seven `security_type`
+   fields a propagation graph needs.
+
+No verdict, label or count is edited, recomputed or rounded.
 
 **Why it is here.** The taint labels exist in no file on disk — they are what the kernel
 computes when a case is replayed — so a viewer of ArbiterOS traces cannot be demonstrated

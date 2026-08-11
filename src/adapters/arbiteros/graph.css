@@ -1,0 +1,596 @@
+/* The taint graph's layout and its two-channel encoding.
+   Every colour is a token from index.css; what is invented here is the mapping
+   of `LOW / UNKNOWN / HIGH` onto a border, a fill and a texture. `.panel`,
+   `.kv`, `.badge`, `.notice` and `.btn` are the shell's — an adapter arranges
+   shell primitives, it does not restyle them.
+
+   ── Contrast, measured rather than eyeballed ─────────────────────────────────
+   Ratios below are computed against the tokens in index.css, light / dark. Text
+   is held to 4.5:1 and every graphical carrier — border, texture, edge, ring —
+   to the 3:1 non-text minimum.
+
+     text on the three node fills (raised / hover / info-soft)
+       --text            17.96 15.42 15.06   |  14.20 13.13 13.48
+     the borders, on the fills they sit on and on the canvas behind them
+       --ok              5.08 4.36 4.26 (sunken 4.69)  |  6.87 6.36 6.52 (7.71)
+       --warn            5.77 4.95 4.84 (5.32)         |  6.92 6.40 6.57 (7.76)
+       --bad             5.92 5.08 4.96 (5.47)         |  5.21 4.82 4.94 (5.84)
+     the textures, on the fill they are drawn into
+       --text-faint on --bg-hover      4.62  |  4.74
+       --info on --info-soft           5.46  |  4.94
+     edges, rings and the mark, on the canvas --bg-sunken
+       --text-faint      4.97  |  5.75
+       --accent          4.28  |  6.12
+       --bad             5.47  |  5.84
+     the mark's text on its own fill
+       --bad on --bad-soft   5.04  |  5.05
+       --warn on --warn-soft 5.09  |  6.28
+
+   The two soft fills sit at 1.05–1.24 against the canvas, which is why the mark
+   is drawn with a stroke as well as a fill: on this background its shape, not
+   its colour, is what makes it a pill. */
+
+.tg {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 30%);
+  gap: var(--sp-3);
+  height: 100%;
+  min-height: 0;
+}
+
+.tg-graph-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ----------------------------------------------------------------- caption */
+
+.tg-cap {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.tg-cap-title {
+  font-size: var(--fs-md);
+  overflow-wrap: anywhere;
+}
+
+/* The sentences that say what an arrow is and what the two channels are. Never
+   truncated: a legend explained in half a sentence has not been explained. */
+.tg-cap-line {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.tg-cap-warn {
+  font-size: var(--fs-xs);
+}
+
+/* ------------------------------------------------------------------ legend */
+
+/* Mandatory, and always on screen: a two-channel encoding is not guessable, and
+   a key behind a disclosure triangle is a key most readers never open. */
+.tg-legend {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.tg-legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+}
+
+.tg-legend-name {
+  min-width: 11ch;
+  font-weight: 600;
+  color: var(--text-faint);
+}
+
+.tg-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.tg-swatch {
+  width: 30px;
+  height: 16px;
+  overflow: visible;
+}
+
+.tg-legend-svg {
+  width: 34px;
+  height: 14px;
+  overflow: visible;
+}
+
+.tg-legend-chip {
+  display: inline-block;
+  width: 14px;
+  height: 10px;
+  border-radius: 5px;
+}
+
+.tg-legend-chip[data-verdict='rewritten'] {
+  background: var(--bad-soft);
+  border: 1.5px solid var(--bad);
+}
+
+.tg-legend-chip[data-verdict='wouldblock'] {
+  background: var(--warn-soft);
+  border: 1.5px dashed var(--warn);
+}
+
+/* The neutral mark, which is what a case with nothing but a recorded policy
+   name wears on the drawing. */
+.tg-legend-chip[data-verdict='flagged'] {
+  background: var(--bg-raised);
+  border: 1px solid var(--text-faint);
+}
+
+/* ------------------------------------------------------------------ canvas */
+
+/* The drawing keeps its size and this box scrolls. Scaling 41 nodes down to fit
+   a pane would leave 41 unreadable smudges, and the labels on them are the
+   point of the view. */
+.tg-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* index.css sets `svg { max-width: 100% }` for images in prose. Here it would
+   shrink the canvas back into the pane and undo the rule above. */
+.tg-svg {
+  display: block;
+  max-width: none;
+}
+
+/* ------------------------------------------------------------------- edges */
+
+.tg-edge {
+  fill: none;
+  stroke: var(--text-faint);
+  stroke-width: 1.4;
+}
+
+.tg-edge-reference {
+  stroke-dasharray: 5 4;
+  stroke-width: 1.2;
+}
+
+/* The chain that explains the selected node's inherited label. Thicker as well
+   as coloured, so the highlight is a weight change and not only a hue change. */
+.tg-edge[data-lit] {
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-dasharray: none;
+}
+
+.tg-arrowhead {
+  fill: var(--text-faint);
+}
+
+.tg-arrowhead.is-lit {
+  fill: var(--accent);
+}
+
+/* ------------------------------------------------------------------- nodes */
+
+.tg-node {
+  cursor: pointer;
+}
+
+.tg-node-fill {
+  fill: var(--bg-raised);
+  stroke: none;
+}
+
+.tg-node-texture {
+  stroke: none;
+}
+
+.tg-node-box {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+/* Trustworthiness — hue AND stroke weight AND dash pattern. LOW is the heavy
+   unbroken line because it is the value that stops things; UNKNOWN is broken
+   because it is the sentinel between the two; HIGH is the quiet hairline. */
+.tg-node[data-trust='low'] .tg-node-box {
+  stroke: var(--bad);
+  stroke-width: 3;
+}
+
+.tg-node[data-trust='unknown'] .tg-node-box {
+  stroke: var(--warn);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+.tg-node[data-trust='high'] .tg-node-box {
+  stroke: var(--ok);
+  stroke-width: 1.5;
+}
+
+.tg-node[data-trust='unstated'] .tg-node-box {
+  stroke: var(--text-faint);
+  stroke-width: 1;
+  stroke-dasharray: 1 3;
+}
+
+/* Confidentiality — tint AND texture. The tints alone would not survive the
+   dark theme, where every soft token sits within 1.2:1 of the surface behind
+   it; the texture is what carries the channel there, and in a monochrome
+   print, and for a reader who cannot separate the two hues. */
+.tg-node[data-conf='low'] .tg-node-fill {
+  fill: var(--bg-raised);
+}
+
+.tg-node[data-conf='unknown'] .tg-node-fill {
+  fill: var(--bg-hover);
+}
+
+.tg-node[data-conf='high'] .tg-node-fill {
+  fill: var(--info-soft);
+}
+
+.tg-node[data-conf='unstated'] .tg-node-fill {
+  fill: var(--bg-inset);
+}
+
+.tg-dot {
+  fill: var(--text-faint);
+  opacity: 0.55;
+}
+
+.tg-hatch {
+  stroke: var(--info);
+  stroke-width: 1.4;
+}
+
+.tg-node-head {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--text);
+}
+
+.tg-node-line {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  fill: var(--text);
+}
+
+.tg-node-broken {
+  font-size: 12px;
+  fill: var(--warn);
+}
+
+/* The chain highlight: an aura around the node, well clear of both the trust
+   border and the selection ring, so all three can be true at once — and the
+   ancestor that is actually to blame wears it solid while the path to it wears
+   it faint, which is a weight difference as well as a hue. */
+.tg-node-lit {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 5;
+  stroke-opacity: 0.45;
+}
+
+.tg-node[data-blamed] .tg-node-lit {
+  stroke-width: 6;
+  stroke-opacity: 1;
+}
+
+.tg-node-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+/* Two indicators, because one of them may not be painted at all: the browser's
+   own outline on the group, and — for engines that decline to outline an SVG
+   group — the selection ring going thicker and breaking into dashes. Both are
+   shape changes, so the focus cursor survives being read without colour.
+
+   What deliberately does NOT happen here is recolouring `.tg-node-box`: that
+   border is the trustworthiness of the instruction under the cursor, and a
+   focus style that overwrites it blanks out the one label a reader is most
+   likely to be looking at when they arrive. */
+.tg-node:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.tg-node:focus-visible .tg-node-ring {
+  stroke-width: 3;
+  stroke-dasharray: 5 3;
+}
+
+/* ------------------------------------------------------------------- marks */
+
+.tg-mark-box {
+  fill: var(--bg-raised);
+  stroke: var(--text-faint);
+  stroke-width: 1;
+}
+
+.tg-mark-text {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  fill: var(--text-muted);
+}
+
+.tg-mark[data-verdict='rewritten'] .tg-mark-box {
+  fill: var(--bad-soft);
+  stroke: var(--bad);
+  stroke-width: 1.5;
+}
+
+.tg-mark[data-verdict='rewritten'] .tg-mark-text {
+  fill: var(--bad);
+}
+
+/* A policy judged the response should be stopped and the kernel returned the
+   original anyway. Warn, dashed: the alarm colour because it is the detection,
+   the broken outline because nothing was actually stopped.
+
+   `data-verdict='flagged'` deliberately has no rule of its own and keeps the
+   neutral mark above. A recorded policy name is not a detection — 65 of the 66
+   in the shipped package are one policy re-serialising a tool call's arguments
+   and changing nothing — and painting it in the alarm colour is exactly how a
+   reader comes away with the wrong number. */
+.tg-mark[data-verdict='wouldblock'] .tg-mark-box {
+  fill: var(--warn-soft);
+  stroke: var(--warn);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+}
+
+.tg-mark[data-verdict='wouldblock'] .tg-mark-text {
+  fill: var(--warn);
+}
+
+/* ------------------------------------------------------------------- panel */
+
+.tg-panel {
+  min-width: 0;
+}
+
+.tg-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-3);
+}
+
+.tg-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.tg-block-title,
+.tg-sub-title {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.tg-block-title .faint,
+.tg-sub-title .faint {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* The kernel's field names on the left, its values on the right. The names are
+   the package's own keys and are not translated, so the column is sized to the
+   longest of them rather than to a translated word. */
+.tg-kv > dt {
+  font-family: var(--font-mono);
+}
+
+.tg-say {
+  font-size: var(--fs-sm);
+  line-height: var(--lh-loose);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.tg-jump {
+  align-self: flex-start;
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
+
+/* The package's own sentence on its two counts, quoted rather than paraphrased.
+   It reads in one language because that is the language it was written in. */
+.tg-how {
+  flex-direction: column;
+  gap: var(--sp-1);
+  align-items: flex-start;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-base);
+}
+
+.tg-content {
+  max-height: 22em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tg-details {
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.tg-details > summary {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.tg-details[open] > summary {
+  margin-bottom: var(--sp-2);
+}
+
+.tg-sources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-xs);
+}
+
+/* Below the width where a graph and a panel can stand side by side, the panel
+   goes under it.
+
+   The previous version of this block split a fixed box between the two, and at
+   phone widths that box was 167px: the graph column got an 88px scrollport
+   holding 600–700px of caption, the canvas fell wholly below it, and the graph
+   was not on screen at all. Percentages of a box too small for either half give
+   two slivers, not two panes.
+
+   So at these widths the parts stop competing. The column is a plain flow — no
+   inner scrollport — each part takes a height it can be read at, and the page
+   scroller above carries whatever that adds up to. The canvas keeps a definite
+   height rather than a max, because it is a scrollport itself and a scrollport
+   whose height is its content's cannot scroll; the panel likewise, so its body
+   keeps its own scrollbar instead of unrolling 1,300px of the kernel's own
+   fields into the page. */
+@media (max-width: 900px) {
+  .tg {
+    /* Still a grid, and still `minmax(0, 1fr)`: the drawing is up to 9,606px
+       wide and the `0` is what stops that width from walking out through the
+       column and making the whole page scroll sideways. A flex column here
+       does not hold — a scroll container still hands its content's min-content
+       width to an intrinsic parent, and the pane comes out 1,889px wide inside
+       a 375px phone. Measured.
+
+       The rows are content-sized instead of two percentages of a box that is
+       too small for either of them. */
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    height: auto;
+    min-height: 100%;
+  }
+
+  /* No inner scrollport, and no `min-height: 0`. The zero is what let the row
+     above collapse: an `auto` grid row takes its item's *minimum* contribution
+     as its base size, and a definite `min-height` IS that contribution — so the
+     graph column was sized at 44px against 931px of content and the drawing sat
+     below the pane it was supposed to be in. */
+  .tg-graph-side {
+    overflow: visible;
+    min-height: auto;
+  }
+
+  /* The drawing goes first, above its own caption. Every case in the shipped
+     package is one row of nodes 130px tall, so this is the whole figure and not
+     a slice of it; the sentences that say what an arrow means follow it, which
+     is the order they are read in anyway. */
+  .tg-cap {
+    display: contents;
+  }
+
+  .tg-cap-title {
+    order: 0;
+  }
+
+  .tg-canvas {
+    flex: 0 0 auto;
+    order: 1;
+    height: clamp(150px, 20vh, 220px);
+  }
+
+  .tg-cap-line,
+  .tg-cap-warn {
+    order: 3;
+  }
+
+  /* Figure first, key immediately under it, prose after both — and that
+     adjacency is what makes the comment at the top of the legend block true
+     rather than aspirational. The key was measured off screen at 375, 502 and
+     900 because it sat below 250px of caption; drawing and key now sit together
+     in about 330px, so a reader looking at one is looking at the other. At
+     502×900 and 900×900 both are fully on screen at rest, in both languages —
+     measured 1.00 and 1.00.
+
+     Capped and scrollable, not truncated: the whole key runs to 338px at this
+     width and would push the caption out of the first screen on its own. It
+     opens on the two channel rows, which are the part that is not guessable,
+     and the rest is a short scroll rather than a lost row. */
+  .tg-legend {
+    order: 2;
+    max-height: min(160px, 26vh);
+    overflow: auto;
+  }
+
+  /* A height, not a max: the panel body is a scrollport and a scrollport sized
+     by its own content has nothing to scroll. 1,349px of the kernel's own
+     fields would otherwise unroll into the page. */
+  .tg-panel {
+    height: clamp(280px, 46vh, 520px);
+  }
+}
+
+@media (max-width: 640px) {
+  .tg-legend-name {
+    min-width: 100%;
+  }
+}
+
+/* The narrowest phone, where the pane is 433px and the chrome above the graph —
+   tab strip, notes, the line saying why this case is the one on screen — takes
+   most of it. Figure-first does not survive that: measured cold at 320×720, the
+   key started 4px below the fold and was not on screen at all.
+
+   So here the order flips to key-then-figure, the key is cut to its first two
+   rows — the two channels — and the case id drops under the drawing. Both are
+   then on screen at rest: measured cold at 320×720, key 1.00 and drawing 0.70
+   in English, 0.95 in Chinese. Before this the drawing was 0.06 in English. */
+@media (max-width: 400px) {
+  .tg-legend {
+    order: 0;
+    max-height: min(96px, 14vh);
+  }
+
+  /* The case id wraps to two lines at this width. It reads as a caption under
+     the drawing rather than 40px of chrome above it, and the drawing is what a
+     reader opened this tab for. */
+  .tg-cap-title {
+    order: 2;
+  }
+}
