@@ -17,15 +17,17 @@
  *     tail is cut, and that is all.
  *   - The second line is the metadata a reader filters on, in the order they
  *     would ask for it: which half of the suite, how long the script is, which
- *     policies matched, whether a policy judged the response should have been
- *     stopped, whether it actually was, whether any step ended up carrying taint.
- *   - The three verdict figures never appear apart, here either, and they are
- *     three and not two: how many cases a policy judged should be stopped and
- *     which came back unchanged anyway (`verdict.wouldBlock`), how many were
- *     actually rewritten (`intercepted`), and how many merely left a policy name
- *     behind (`flagged`) — the last of which is not a detection and is worded so
- *     it cannot be quoted as one. The counts line over the list states all three
- *     over the same denominator.
+ *     policies matched, whether a policy composed a refusal, whether the response
+ *     was actually rewritten, whether any step ended up carrying taint.
+ *   - The verdict figures never appear apart, here either. A row is one of five
+ *     states, not four, and the split that took four passes to find is the middle
+ *     one: a policy that composed an actual refusal (`hasRefusal`) and one that
+ *     only reported it would change something without saying why are both a
+ *     non-empty `verdict.wouldBlock`, and treating them alike put "would be
+ *     blocked" on 49 rows where no policy ever stated a reason. `flagged` — a
+ *     recorded policy name — is quieter still and worded so it cannot be quoted
+ *     as a detection. The counts line over the list states them over the same
+ *     denominator.
  *   - Selection is the parent's if the parent wants it (`selectedId` +
  *     `onSelect`, so one click drives the propagation graph beside this list)
  *     and this component's otherwise. Either way, a selection that arrives from
@@ -265,11 +267,11 @@ export const CaseBrowser: FC<CaseBrowserProps> = ({ model, selectedId, onSelect 
           <span>
             {t({
               en:
-                `· of those ${shown}: ${tally.detected} were judged to need stopping and were returned ` +
+                `· of those ${shown}: ${tally.detected} had a policy compose a refusal and were returned ` +
                 `unchanged anyway, ${tally.intercepted} had the response actually rewritten, ` +
                 `${tally.flagged} recorded a policy name — which on its own is not a detection`,
               zh:
-                `· 这 ${shown} 个里：${tally.detected} 个被判定应当拦截、但响应仍原样返回，` +
+                `· 这 ${shown} 个里：${tally.detected} 个有 policy 写出了拒绝、但响应仍原样返回，` +
                 `${tally.intercepted} 个的响应真的被改写，` +
                 `${tally.flagged} 个记录到 policy 名称——只有名称并不等于检出`,
             })}
