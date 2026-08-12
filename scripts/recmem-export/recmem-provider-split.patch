@@ -1,0 +1,191 @@
+diff --git a/evaluation/run_experiments.py b/evaluation/run_experiments.py
+index d4ca380..8eb554c 100755
+--- a/evaluation/run_experiments.py
++++ b/evaluation/run_experiments.py
+@@ -3,6 +3,7 @@ import argparse
+ import os
+ from dotenv import load_dotenv
+ from recmem.embedding import OpenAIEmbedding
++from recmem.embedding.base import default_embedding_dim
+ from recmem.llm import OpenAIClient
+ from recmem.prompt import ANSWER_PROMPT_LME, ANSWER_PROMPT_LOCOMO
+ from recmem.rec_mem import RecMem, RecMemConfig
+@@ -31,7 +32,7 @@ def make_qdrant_store(layer_name: str, storage_path: Optional[str]) -> VectorSto
+     Chroma, Pinecone, Weaviate, etc.
+     """
+     return QdrantStore(
+-        embedding_dim=1536,
++        embedding_dim=default_embedding_dim(),
+         path=storage_path or "",
+         exact_search=True,
+     )
+diff --git a/recmem/embedding/base.py b/recmem/embedding/base.py
+index 277a50a..7268f5f 100644
+--- a/recmem/embedding/base.py
++++ b/recmem/embedding/base.py
+@@ -1,3 +1,4 @@
++import os
+ from abc import ABC, abstractmethod
+ from typing import List
+ 
+@@ -25,3 +26,16 @@ class Embedding(ABC):
+     def dim(self) -> int:
+         """The dimensionality of vectors produced by this embedder."""
+         ...
++
++
++def default_embedding_dim() -> int:
++    """The vector width every Qdrant collection is created with.
++
++    Upstream hardcodes 1536 (text-embedding-3-small) at five sites. A provider
++    with a different width — bge-m3 is 1024 — then fails at
++    `QdrantStore.add`'s dimension check, which is at least loud. Reading one env
++    var keeps the five sites from drifting apart, and EMBEDDING_DIM is the same
++    variable OpenAIEmbedding reads, so the store and the embedder cannot
++    disagree.
++    """
++    return int(os.getenv("EMBEDDING_DIM") or 1536)
+diff --git a/recmem/embedding/openai.py b/recmem/embedding/openai.py
+index ddabffa..fc3ac4b 100755
+--- a/recmem/embedding/openai.py
++++ b/recmem/embedding/openai.py
+@@ -18,22 +18,58 @@ class OpenAIEmbedding(Embedding):
+     MAX_TOKENS = 8191
+ 
+     def __init__(
+-        self, model: str = "text-embedding-3-small", embedding_dims: int = 1536
++        self,
++        model: Optional[str] = None,
++        embedding_dims: Optional[int] = None,
++        base_url: Optional[str] = None,
++        api_key: Optional[str] = None,
+     ):
++        """Embeddings, addressable independently of the chat endpoint.
+ 
+-        self.model = model
+-        self.embedding_dims = embedding_dims
++        Upstream reads OPENAI_API_BASE / OPENAI_BASE_URL here — the same pair the
++        chat client reads (`recmem/llm/openai.py:32-36`) — so pointing chat at a
++        provider that serves no embeddings (DeepSeek has no /v1/embeddings at
++        all) silently drags this client there too, and the first add_memory dies
++        as `RuntimeError: Failed to embed text after 3 retries`.
+ 
+-        api_key = os.getenv("OPENAI_API_KEY")
++        EMBEDDING_API_BASE / EMBEDDING_API_KEY are checked first so the two legs
++        can go to different providers. Everything falls back to the old
++        behaviour, so an unset environment behaves exactly as before.
++        """
++        self.model = model or os.getenv("EMBEDDING_MODEL") or "text-embedding-3-small"
++        self.embedding_dims = (
++            embedding_dims
++            if embedding_dims is not None
++            else int(os.getenv("EMBEDDING_DIM") or 1536)
++        )
++
++        api_key = api_key or os.getenv("EMBEDDING_API_KEY") or os.getenv("OPENAI_API_KEY")
+         base_url = (
+-            os.getenv("OPENAI_API_BASE")
++            base_url
++            or os.getenv("EMBEDDING_API_BASE")
++            or os.getenv("OPENAI_API_BASE")
+             or os.getenv("OPENAI_BASE_URL")
+             or "https://api.openai.com/v1"
+         )
+ 
++        # `dimensions` is a text-embedding-3-* parameter. Sending it to bge-m3,
++        # bce, or most relays is a 400, and sending it to a model with a fixed
++        # width is meaningless. Default: send it only for the family that
++        # defines it. EMBEDDING_SEND_DIMENSIONS=1/0 overrides either way.
++        override = os.getenv("EMBEDDING_SEND_DIMENSIONS")
++        self.send_dimensions = (
++            override.strip().lower() in {"1", "true", "yes"}
++            if override is not None
++            else self.model.startswith("text-embedding-3")
++        )
++
+         self.client = OpenAI(api_key=api_key, base_url=base_url)
+         self._tokenizer: Optional[tiktoken.Encoding] = None
+ 
++    def _extra(self) -> dict:
++        """`dimensions=` only where the provider defines it. See __init__."""
++        return {"dimensions": self.embedding_dims} if self.send_dimensions else {}
++
+     @property
+     def dim(self) -> int:
+         return self.embedding_dims
+@@ -76,7 +112,7 @@ class OpenAIEmbedding(Embedding):
+                     self.client.embeddings.create(
+                         input=[text],
+                         model=self.model,
+-                        dimensions=self.embedding_dims,
++                        **self._extra(),
+                     )
+                     .data[0]
+                     .embedding
+@@ -122,7 +158,7 @@ class OpenAIEmbedding(Embedding):
+                 response = self.client.embeddings.create(
+                     input=processed_texts,
+                     model=self.model,
+-                    dimensions=self.embedding_dims,
++                    **self._extra(),
+                 )
+                 # Sort by index to ensure correct order
+                 sorted_data = sorted(response.data, key=lambda x: x.index)
+diff --git a/recmem/episodic_memory.py b/recmem/episodic_memory.py
+index c90ed6b..1c1bc3e 100755
+--- a/recmem/episodic_memory.py
++++ b/recmem/episodic_memory.py
+@@ -2,6 +2,7 @@ import os
+ 
+ from typing import List, Tuple, Optional
+ from recmem.token_monitor import TokenMonitor, OPType
++from recmem.embedding.base import default_embedding_dim
+ from recmem.embedding import Embedding, OpenAIEmbedding
+ from recmem.prompt import EPISODIC_GENERATION_PROMPT, EPISODIC_MERGE_PROMPT
+ from recmem.vector_store import QdrantStore, VectorStore
+@@ -35,7 +36,7 @@ class EpisodicMemory:
+             if path is None:
+                 path = os.getenv("EPISODIC_STORE") or ""
+             self.vec_store = QdrantStore(
+-                embedding_dim=1536, path=path, exact_search=True
++                embedding_dim=default_embedding_dim(), path=path, exact_search=True
+             )
+         logger.info(f"Episodic memory storage path: {path}")
+ 
+diff --git a/recmem/rec_mem.py b/recmem/rec_mem.py
+index 666a621..4ea317a 100755
+--- a/recmem/rec_mem.py
++++ b/recmem/rec_mem.py
+@@ -1,4 +1,5 @@
+ from recmem.embedding import Embedding, OpenAIEmbedding
++from recmem.embedding.base import default_embedding_dim
+ from recmem.episodic_memory import EpisodicMemory
+ from recmem.semantic_memory import SemanticMemory
+ from recmem.subconscious_memory import SubconsciousMemory
+@@ -30,7 +31,7 @@ can route layers to different stores or apply layer-specific config.
+ 
+ def _default_qdrant_factory(layer_name: str, storage_path: Optional[str]) -> VectorStore:
+     return QdrantStore(
+-        embedding_dim=1536,
++        embedding_dim=default_embedding_dim(),
+         path=storage_path or "",
+         exact_search=True,
+     )
+@@ -104,7 +105,7 @@ class RecMem:
+ 
+         # Initialize memory layers, sharing the embedder and llm_client where applicable
+         self.subconscious_memory = SubconsciousMemory(
+-            embedding_dim=1536,
++            embedding_dim=default_embedding_dim(),
+             storage_path=subconscious_path,
+             embedder=self.embedder,
+             vector_store=factory("subconscious", subconscious_path),
+@@ -127,7 +128,7 @@ class RecMem:
+         self.semantic_memory_topk = config.semantic_memory_topk
+         self.semantic_memory_threshold = config.semantic_memory_threshold
+         self.semantic_memory = SemanticMemory(
+-            embedding_dim=1536,
++            embedding_dim=default_embedding_dim(),
+             storage_path=semantic_path,
+             embedder=self.embedder,
+             vector_store=factory("semantic", semantic_path),
