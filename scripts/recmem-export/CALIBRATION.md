@@ -154,7 +154,7 @@ export LOCOMO_SCORE_PATH=<dir>
 
 python -m evaluation.run_experiments \
   --bench locomo --conv_limit 1 --conv_workers 1 \
-  --model deepseek-chat \
+  --model deepseek-v4-flash \
   --min_relevant_score 0.78 \
   --merge_with_epi_thresh 0.88 \
   --output_file out/run.json
@@ -162,6 +162,10 @@ python -m evaluation.run_experiments \
 
 `--conv_workers 1` is required for a per-conversation growth curve: above one
 worker the token monitor is global and the curves interleave.
+
+`deepseek-chat` / `deepseek-reasoner` are the **deprecated** names. As of the
+2026-07-31 docs `GET /models` returns exactly two ids: `deepseek-v4-flash` and
+`deepseek-v4-pro`.
 
 **Do not use a reasoning model for `--model`.** Four of the five call sites send
 `response_format={"type":"json_object"}` (`llm/openai.py:65`), which
@@ -173,6 +177,23 @@ The judge (`--judge_model`) still cannot be pointed at a separate provider — i
 builds its own client at `llm_judge.py:20-28`, bypassing the `LLMClient`
 abstraction. It will use whatever `OPENAI_API_BASE` says, so scoring needs a chat
 model that host serves. `--eval_only` runs it separately if you want to defer it.
+
+### What it should cost
+
+`deepseek-v4-flash` is $0.14 / 1M input (cache miss), **$0.0028 cache hit**, $0.28
+/ 1M output. Prefix caching is automatic and this pipeline re-sends history, so a
+large share of input should hit.
+
+At the calibrated thresholds conv-26 does 17 consolidations + 19 merges — about
+90 memory-pipeline calls once semantic extraction is counted — plus 199 answer
+calls. At a few thousand input tokens each that lands around **$0.10–0.30 for one
+conversation**, before caching helps. The original plan budgeted $5–10 on
+`gpt-4o-mini`; this is one to two orders of magnitude under it, and embeddings
+add nothing if they run locally.
+
+Treat that as an estimate, not a quote — DeepSeek's pricing page carries an
+explicit warning that a significant increase is planned. `--conv_limit 1` and the
+`token_stats` file settle it for real before any second run.
 
 ## 5. Acceptance check before trusting the package
 
