@@ -12,7 +12,8 @@ reproducible with `calibrate.py`.
 | Embeddings | **DeepSeek has no embeddings endpoint at all.** A second provider is required. |
 | Splitting the two | Needs a code change. Upstream reads ONE base_url for chat, embeddings *and* the judge. |
 | `--min_relevant_score` | **0.78** (upstream default 0.7 is far too low for bge-m3) |
-| `--merge_with_epi_thresh` | **0.88** (upstream default 0.7 produces ONE episode for a whole conversation) |
+| `--merge_with_epi_thresh` | **0.88** (at the default, 21 of 33 episodes carry no lineage and only 17% of semantic facts resolve) |
+| Verified how | the whole pipeline was run offline with a stub LLM — 40 LLM calls vs 108, 90% exact lineage vs 17% |
 
 ## 1. DeepSeek cannot supply embeddings
 
@@ -115,28 +116,58 @@ At **0.78** the gate runs at roughly 40–50% of saturation and the buffer retai
 > 0.62–0.70 across the ten conversations) and the gate is stuck *on*. Predicting
 > the direction from a model card does not work; measuring costs nothing.
 
-### Merge gate — 0.7 collapses the episodic layer to one entry
+### Merge gate — measured against the real pipeline, and my offline proxy was wrong
 
-| merge threshold | conv-26 | conv-42 | conv-47 |
-|---|---|---|---|
-| 0.70 (default) | 1 episode / 162 merges | 2 / 237 | 1 / 234 |
-| 0.84 | 10 / 59 | 12 / 78 | 9 / 59 |
-| **0.88** | **17 / 19** | **21 / 34** | **14 / 20** |
-| 0.90 | 17 / 8 | 26 / 16 | 15 / 9 |
+The offline sweep predicted 162 merges at the default 0.7 and "one episode for
+the whole conversation". **Both are wrong.** Running RecMem's actual `add_memory`
+loop with real Ollama/bge-m3 vectors and real Qdrant stores (`dryrun.py`, a stub
+LLM in place of the paid one) gives 21 merges and 33 episodes.
 
-At the default, three quarters of all turns take the merge branch. That branch is
-the one that **destroys lineage**: `episodic_memory.py:248` writes the merged
-episode with no `extra_payload`, so it carries neither `conversation` nor
-`raw_ids`, and the semantic fact it produces gets
-`source = f"{conv}-{new_episodic}"`, which `export.py` can only resolve by suffix.
-A run at 0.7 would produce exactly the demo that cannot be shown: one episode and
-a pile of unlinked facts.
+The proxy over-predicted merges by roughly 8x, and the reason is instructive: it
+stood in the **mean of an episode's turns** for the episode vector, and a mean of
+five turns lands near the centroid of the conversation's topic cloud, so
+everything looks similar to it. A real episode — or even an extractive stand-in —
+sits off-centre and matches far less. Averaging is not a neutral stand-in for
+summarising.
 
-Caveat, stated because it matters: episodes are LLM rewrites that do not exist
-offline, so `calibrate.py` stands in the **mean of the turns each episode
-consolidated**. A real summary sits closer to its own turns than their mean does,
-so these merge counts are a **floor** — the real firing rate is at least this
-high. That is an argument for 0.88 rather than 0.84, not against the method.
+The consolidation half of the simulation, by contrast, is **exact**: it predicted
+20 fires and 90 turns left in the buffer at 0.78, and the real run produced 20 and
+90. That half needs no proxy, which is precisely why it is trustworthy.
+
+#### What the real pipeline does — conv-26, 214 turns
+
+| | default `0.7 / 0.7` | calibrated `0.78 / 0.88` |
+|---|---|---|
+| LLM calls | **108** | **40** (−63%) |
+| — episodic generation | 33 | 20 |
+| — semantic extraction | 33 | 20 |
+| — episodic merge | 21 | 0 |
+| — semantic extraction during merge | 21 | 0 |
+| subconscious layer | 13 (6% of turns) | **90 (42%)** |
+| episodic layer | 33 | 20 |
+| episodes **with no `raw_ids`** | **21 of 33** | **0 of 20** |
+| semantic facts | 54 | 20 |
+| `sourceHow: exact` | **9 / 54 = 17%** | **18 / 20 = 90%** |
+| `ambiguous` / `unresolved` | 23 / 21 | 2 / 0 |
+
+So the case for calibrating is smaller than the sweep suggested and still
+decisive — just for a different reason than predicted. It is not that the default
+collapses the episodic layer. It is that at the default, **21 of 33 episodes are
+merge-generated and carry no lineage at all**, and only 17% of semantic facts can
+be traced to the episode that produced them. The Memory Explorer's lineage view —
+the whole point of V1 — would be mostly dead links. At 0.78/0.88 every episode
+keeps its `raw_ids` and 90% of facts resolve exactly, for 63% of the LLM calls.
+
+The remaining 2 `ambiguous` facts are an artefact of the stub, which emits
+duplicate episode texts; a real model would not.
+
+### A broken method the plan told me to use
+
+`QdrantStore.get_collection_info()` raises against the pinned qdrant-client —
+`'CollectionInfo' object has no attribute 'vectors_count'` — and swallows it,
+returning `{}` for every collection. The M4 plan named it as the export
+mechanism. `export.py` scrolls the collections directly instead, so it is
+unaffected, but any layer-size number read through that method is silently zero.
 
 ## 4. The run
 
@@ -184,10 +215,11 @@ model that host serves. `--eval_only` runs it separately if you want to defer it
 / 1M output. Prefix caching is automatic and this pipeline re-sends history, so a
 large share of input should hit.
 
-At the calibrated thresholds conv-26 does 17 consolidations + 19 merges — about
-90 memory-pipeline calls once semantic extraction is counted — plus 199 answer
-calls. At a few thousand input tokens each that lands around **$0.10–0.30 for one
-conversation**, before caching helps. The original plan budgeted $5–10 on
+The call count is now **measured, not estimated**: conv-26 at the calibrated
+thresholds makes exactly **40** memory-pipeline calls (20 episodic generation + 20
+semantic extraction, 0 merges), against 108 at the defaults. Add 199 answer calls
+for that conversation's questions. At a few thousand input tokens each that lands
+around **$0.10–0.20 for one conversation**, before caching helps. The original plan budgeted $5–10 on
 `gpt-4o-mini`; this is one to two orders of magnitude under it, and embeddings
 add nothing if they run locally.
 
@@ -204,7 +236,9 @@ Run `export.py`, then require all four:
 3. episodic in the 10–30 range for one conversation;
 4. **≥ 60% of semantic facts resolving with `sourceHow: exact`** — this is the
    one that catches a merge gate set too low, because merge-path facts can only
-   ever resolve as `suffix` or `unresolved`.
+   ever resolve as `suffix`, `ambiguous` or `unresolved`. Measured: the defaults
+   score **17%** and fail it; 0.78/0.88 scores **90%**. Note that "resolvable at
+   all" is the wrong test — the defaults reach 61% on that and are still unusable.
 
 If (4) fails, raise `--merge_with_epi_thresh` and re-run; nothing else in the
 pipeline reports that failure.
